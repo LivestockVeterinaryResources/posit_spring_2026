@@ -270,5 +270,6 @@ ggplot(
     title = "Age Left by Exit Type",
     x = "Exit type",
     y = "age_left"
-  )
+  ) 
+  
 ```
