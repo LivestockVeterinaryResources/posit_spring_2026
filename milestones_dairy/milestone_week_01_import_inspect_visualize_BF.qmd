@@ -102,8 +102,12 @@ Write your code in the following chunk:
 
 number_of_rows <- nrow(animals)
 
+library(dplyr)
+?count()
+counts <- animals |> count(breed, sex, location_list)
+counts
 
-
+?sort()
 
 ```
 
