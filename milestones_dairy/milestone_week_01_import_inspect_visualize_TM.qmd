@@ -49,7 +49,7 @@ Your goal in this part is to read the animals.parquet file into your environment
 Start by finding out what your working directory is.  Run getwd() in the chunk below.  
 
 ```{r}
-
+getwd() #check the directory
 
 
 ```
@@ -64,7 +64,7 @@ Next we want to confirm where the animals.parquet file is located. It is in "dat
 
 
 ```{r}
-
+list.files ("C:/Users/tnmarins/Documents/GitHub/posit_spring_2026_Thiago/data/intermediate_files") # This code check all the files in the folder.
 
 
 ```
@@ -75,7 +75,8 @@ Now it is your turn. Write some code in this chunk that will read in the file na
 #| label: recreation-import
 #hint the function to read in a parquet file is the same as the code to read a csv file except replace 'csv' with 'parquet'
 
-
+library(readr) #It is needed to run the function read_parquet
+animals <- read_parquet("C:/Users/tnmarins/Documents/GitHub/posit_spring_2026_Thiago/data/intermediate_files/animals.parquet")
 
 ```
 
@@ -99,7 +100,10 @@ Write your code in the following chunk:
 ```{r}
 #| label: recreation
 
+animals
+number_of_rows <- nrow(animals)
 
+counts <- animals |> count(location_list, breed, sex)
 
 ```
 
@@ -142,7 +146,7 @@ Write your code in the following chunk:
 
 ```{r}
 #| label: recreation of summary
-
+summary (animals)
 skim_animals<-skim(animals)
 
 write_rds(skim_animals, 'milestones_dairy/data_milestones/solutions_week_01_skim_animals.rds')
@@ -188,8 +192,12 @@ Hint: Although many of your examples put mapping = aes() up in the ggplot, It is
 
 
 
-
-
+ggplot(data = filter(animals, age_left > 365),
+       aes(x = breed, y = age_left))+
+  geom_boxplot()+
+  geom_point(data = mean_by_breed, aes(x = breed, y = ave_age_left), color = "blue", size = 6)
+  
+  
 
 
 ```
