@@ -12,7 +12,10 @@ format:
 ```{r}
 #| label: setup
 #| include: false
+
+install.packages("knitr")
 knitr::opts_chunk$set(echo = TRUE)
+install.packages(c("tidyverse", "arrow", "skimr", "waldo"))
 
 # Load your packages here
 library(tidyverse) #this includes many packages and is the main package used in nearly all data wrangling
@@ -75,7 +78,6 @@ Now it is your turn. Write some code in this chunk that will read in the file na
 #| label: recreation-import
 #hint the function to read in a parquet file is the same as the code to read a csv file except replace 'csv' with 'parquet'
 
-library(arrow)
 animals <- read_parquet("data/intermediate_files/animals.parquet")
 
 ```
@@ -102,12 +104,10 @@ Write your code in the following chunk:
 
 number_of_rows <- nrow(animals)
 
-library(dplyr)
-?count()
 counts <- animals |> count(breed, sex, location_list)
 counts
 
-?sort()
+animals_common_breed <- filter(animals, breed == "X")
 
 ```
 
@@ -151,6 +151,8 @@ Write your code in the following chunk:
 ```{r}
 #| label: recreation of summary
 
+summary(animals, character.method = "factor")
+summary(animals_common_breed)
 skim_animals<-skim(animals)
 
 write_rds(skim_animals, 'milestones_dairy/data_milestones/solutions_week_01_skim_animals.rds')
@@ -194,12 +196,19 @@ Hint: Although many of your examples put mapping = aes() up in the ggplot, It is
 ```{r}
 #| label: recreation-visualize
 
+ave_age_plot <- ggplot() +
+  geom_boxplot(data = (filter(animals, age_left>365)), mapping = aes(x = breed, y = age_left), na.rm = TRUE, fill = "#e6f2f2") +
+  geom_point(data = mean_by_breed, mapping = aes(x = breed, y = ave_age_left), color = "#1c9099", size = 4) +
+  labs(title = "Example Herd 210",
+  x = "Breed",
+  y = "Average age left") +
+  ylim(200, 4800) +
+  theme_bw() +
+  theme(panel.grid.major.x = element_blank(),
+  panel.grid.minor.x = element_blank(),
+  plot.title = element_text(hjust = 0.5))
 
-
-
-
-
-
+ggsave("milestones_dairy/images/ave_age_breed.png", plot = ave_age_plot)
 ```
 
 
@@ -225,5 +234,87 @@ Write your extension code in the following chunk:
 
 ```{r}
 #| label: extension
+# Evaluating age at death and distribution across breed
 
+animals_died <- animals |> mutate(age_death = as.numeric(date_died - date_birth))
+skim_died <- skim(animals_died)
+summary(animals_died)
+
+# Make two dataframes - animals that died < 730 d and animals that died > 730 d
+animals_died_pre <- filter(animals_died, age_death < 730)
+animals_died_post <- filter(animals_died, age_death >= 730)
+summary(animals_died_pre, na.rm = TRUE)
+summary(animals_died_post, na.rm = TRUE)
+
+# Visualizing the single population
+alldeath_histo <- ggplot() +
+  geom_histogram(data = animals_died, na.rm = TRUE, mapping = (aes(x = age_death)), fill = "#1c9099", binwidth = 100)
+ggsave("milestones_dairy/images/alldeath_histo.png", plot = alldeath_histo)
+
+# Visualizing the single population by breed
+mean_death_breed <- animals_died |>
+  filter(age_death >= 730 | age_death < 730) |>
+  group_by(breed) |>
+  summarize(ave_age_death = mean(age_death, na.rm = TRUE)) |>
+  ungroup()
+alldeath_box <- ggplot() +
+  geom_boxplot(data = animals_died, na.rm = TRUE, mapping = aes(x = breed, y = age_death), fill = "#e6f2f2") +
+  geom_point(data = mean_death_breed, mapping = aes(x = breed, y = ave_age_death), color = "#1c9099", size = 4) +
+  labs(title = "Example Herd 210",
+  x = "Breed",
+  y = "Average age at death") +
+  ylim(0, 4000) +
+  theme_bw() +
+  theme(panel.grid.major.x = element_blank(),
+  panel.grid.minor.x = element_blank(),
+  plot.title = element_text(hjust = 0.5))
+
+ggsave("milestones_dairy/images/alldeath_box.png", plot = alldeath_box)
+
+# Visualizing the two populations by breed separately
+# Visualizing deaths < 730 by breed
+ggplot() +
+  geom_histogram(animals_died_pre, mapping = aes(x = age_death), na.rm = TRUE)
+
+mean_death_pre <- animals_died_pre |>
+  group_by(breed) |>
+  summarize(ave_age_death = mean(age_death, na.rm = TRUE)) |>
+  ungroup()
+
+predeath_box <- ggplot() +
+  geom_boxplot(data = animals_died_pre, na.rm = TRUE, mapping = aes(x = breed, y = age_death), fill = "#e6f2f2") +
+  geom_point(data = mean_death_pre, mapping = aes(x = breed, y = ave_age_death), color = "#1c9099", size = 4) +
+  labs(title = "Example Herd 210 - Death < 730",
+  x = "Breed",
+  y = "Average age at death") +
+  ylim(0, 800) +
+  theme_bw() +
+  theme(panel.grid.major.x = element_blank(),
+  panel.grid.minor.x = element_blank(),
+  plot.title = element_text(hjust = 0.5))
+
+ggsave("milestones_dairy/images/predeath_box.png", plot = predeath_box)
+
+# Visualizing >= 730 by breed
+ggplot() +
+  geom_histogram(animals_died_post, mapping = aes(x = age_death), na.rm = TRUE)
+
+mean_death_post <- animals_died_post |>
+  group_by(breed) |>
+  summarize(ave_age_death = mean(age_death, na.rm = TRUE)) |>
+  ungroup()
+
+postdeath_box <- ggplot() +
+  geom_boxplot(data = animals_died_post, na.rm = TRUE, mapping = aes(x = breed, y = age_death), fill = "#e6f2f2") +
+  geom_point(data = mean_death_post, mapping = aes(x = breed, y = ave_age_death), color = "#1c9099", size = 4) +
+  labs(title = "Example Herd 210 - Death >= 730",
+  x = "Breed",
+  y = "Average age at death") +
+  ylim(0,4000) +
+  theme_bw() +
+  theme(panel.grid.major.x = element_blank(),
+  panel.grid.minor.x = element_blank(),
+  plot.title = element_text(hjust = 0.5))
+
+ggsave("milestones_dairy/images/postdeath_box.png", plot = postdeath_box)
 ```
