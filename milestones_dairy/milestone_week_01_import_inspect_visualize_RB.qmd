@@ -198,13 +198,23 @@ Hint: Although many of your examples put mapping = aes() up in the ggplot, It is
 
 ```{r}
 #| label: recreation-visualize
-ggplot()
 
+LeftAfter365DOA <- animals |>
+  filter(age_left > 365)
 
+summary(LeftAfter365DOA)
+summary(mean_by_breed)
 
+mean_by_breed <- animals |>
+  filter(age_left > 365) |>
+  group_by(breed) |>
+  summarize(ave_age_left = mean(age_left, na.rm = TRUE)) |>
+  ungroup()
 
-
-
+ggplot() +
+  geom_boxplot(data = LeftAfter365DOA, aes(x = breed, y = age_left)) +
+  geom_point(data = mean_by_breed, aes(x = breed, y = ave_age_left), color = "blue", size = 4) +
+  labs(title = "Distribution of age at herd exit according to breed", x = "Breed", y = "Age left herd, days")
 
 ```
 
@@ -231,5 +241,22 @@ Write your extension code in the following chunk:
 
 ```{r}
 #| label: extension
+library(lubridate)
+animals <- animals |> 
+  mutate(
+    birth = format(date_birth, "%b/%y"),
+    birth = factor(birth, 
+                        levels = unique(format(sort(date_birth), "%b/%y")))
+  )
+ 
+ mean_by_birth <- animals |>
+  group_by(birth) |>
+  summarize(ave_age_left_birth = mean(age_left, na.rm = TRUE)) |>
+  ungroup()
 
+ggplot() +
+  geom_boxplot(data = animals, aes(x = birth, y = age_left)) +
+  geom_point(data = mean_by_birth, aes(x = birth, y = ave_age_left_birth), color = "blue", size = 4) +
+  labs(title = "Distribution of age at herd exit according to month of birth", x = "Month of birth", y = "Age left herd, days")
+summary(animals)
 ```
