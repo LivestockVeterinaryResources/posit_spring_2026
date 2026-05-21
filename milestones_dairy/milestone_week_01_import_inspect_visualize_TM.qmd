@@ -232,10 +232,47 @@ Write your extension code in the following chunk:
 ```{r}
 #| label: extension
 
+#checking the dataset "animals"
+
+glimpse(animals)
+
+str(animals)
+
+skim(animals) 
+
+#distribution of age_left differ between breeds. Exploring other geoms. 
+
+#First, the boxplot of "animals"
+
+ggplot(data = animals, aes(x = breed, y = age_left))+
+  geom_boxplot()
 
 
+# geom_point 
 ggplot(data = animals,
-       aes(x = breed, y = age_left))+
-  geom_point()
+       aes(x = breed, y = age_left, color = breed)) +
+  geom_point(alpha = 0.5)
+
+
+colnames(animals)
+#age_left vs. sex
+
+
+#new question. To check the left data by breed 
+
+#First, I need to extract the month number (01 to 12) from the date_left column
+animals$month_left <- format(animals$date_left, "%m")
+
+#Remove any missing dates
+clean_months <- subset(animals, !is.na(month_left))
+
+# 3. Frequency of departures per month for each breed
+#position = "dodge" puts the bars side by side
+ggplot(data = clean_months, aes(x = month_left, fill = breed)) +
+  geom_bar(position = "dodge", color = "white") 
+  
+
+
+
 
 ```
