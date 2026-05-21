@@ -48,6 +48,7 @@ Your goal in this part is to read the animals.parquet file into your environment
 Start by finding out what your working directory is. Run getwd() in the chunk below.
 
 ```{r}
+getwd()
 
 
 
@@ -62,7 +63,7 @@ Next we want to confirm where the animals.parquet file is located. It is in "dat
 (Hint: remember that paths need to be in quotes)
 
 ```{r}
-
+list.files("C:/Users/thema/Documents/posit_spring_2026/data/intermediate_files/animals.parquet")
 
 
 ```
@@ -73,7 +74,8 @@ Now it is your turn. Write some code in this chunk that will read in the file na
 #| label: recreation-import
 #hint the function to read in a parquet file is the same as the code to read a csv file except replace 'csv' with 'parquet'
 
-
+animals<-read_parquet("C:/Users/thema/Documents/posit_spring_2026/data/intermediate_files/animals.parquet")
+animals
 
 ```
 
@@ -95,8 +97,25 @@ Write your code in the following chunk:
 ```{r}
 #| label: recreation
 
+#Use nrow() to find the number of observations in animals. Name this "number_of_rows". (hint: you should see "number_of_rows" in your environment)
+number_of_rows<-nrow(animals)
+number_of_rows
 
+#Use count() from the dplyr package to count the number of observations associated with each location, breed and sex (hint: variable names should be "breed", "sex", "location_list". Name this data frame 'counts'.
 
+counts<-count(animals,breed,sex,location_list)
+counts
+
+#Use the information in counts to identify the most common breed in the data. Then create a new dataframe named animals_common_breed. This new data frame should be animals filtered for the most common breed in counts.
+
+#would like help with this in class; is this what it means: 
+#filters the animals by breed after counting each breed and then sorting breeds by the highest total (where the 1 comes from) 
+
+animals_common_breed<-animals|>filter(breed==names(sort(tapply(counts$n,counts$breed,sum),decreasing=TRUE)[1]))
+animals_common_breed
+
+animals_common_breed_2<-counts|>filter(breed %in% "H")
+#alternative code option, just filters based on you visually looking at the counts and seeing that H had the highest n 
 ```
 
 #### Check your answers
@@ -143,6 +162,14 @@ skim_animals<-skim(animals)
 
 write_rds(skim_animals, 'milestones_dairy/data_milestones/solutions_week_01_skim_animals.rds')
 
+#what is the above saying? is it a solution? what is skim animals? 
+
+#Use summary() to generate a summary of the data set
+summary(animals)
+
+#Use skim() to see a different type of summary of the data set (warning: this function may take some time) - Bonus: save the output of your skim function to your environment. Name it "skim_animals".
+skim_animals<-skim(animals)
+
 ```
 
 Check your answer to `skim()`
@@ -181,9 +208,18 @@ Hint: Although many of your examples put mapping = aes() up in the ggplot, It is
 ```{r}
 #| label: recreation-visualize
 
+#Start with a blank canvas
 
+#The data for the boxplot is the animals dataframe filtered so that only animals where age_left>365 days are included.
+ggplot(data = animals|>filter(age_left>365), mapping = aes(x = breed, y = age_left)) +
+  geom_boxplot()
 
+#The data for the blue points (mean age left within breed) is named mean_by_breed and was already created for you. You will see the dataframe in your environment, and you should inspect it so that you understand how to create the graphic using 2 data sets (animals and mean_by_breed) with 2 geoms (geom_boxplot and geom_point)
 
+ggplot(data = animals|>filter(age_left>365), mapping = aes(x = breed, y = age_left)) +
+  geom_boxplot()+
+  geom_point(data = mean_by_breed,
+             aes(x = breed, y = ave_age_left),color="blue",size=4)
 
 
 
@@ -209,5 +245,26 @@ Write your extension code in the following chunk:
 
 ```{r}
 #| label: extension
+
+animals$age <- animals$date_died - animals$date_birth
+#above creates a new column, age; this sometimes is the same as age_left, but sometimes I only have one and not the other...?
+
+age_by_breed <- animals |>
+  drop_na(age, breed) |>
+  group_by(breed) |>
+  summarise(mean_age = mean(age, na.rm = TRUE))
+#removes all animals with NA for breed and age, and creates mean_age
+
+
+ggplot(animals,mapping=aes(x=breed,y=age))+
+  geom_point()+
+  geom_boxplot()
+
+ggplot(age_by_breed, aes(x = breed, y = mean_age)) +
+  geom_col()
+  
+
+
+
 
 ```
