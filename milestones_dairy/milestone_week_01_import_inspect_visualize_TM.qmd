@@ -255,10 +255,9 @@ ggplot(data = animals,
 
 
 colnames(animals)
-#age_left vs. sex
 
 
-#new question. To check the left data by breed 
+#new question. To check the left date by breed over the year (by month)
 
 #First, I need to extract the month number (01 to 12) from the date_left column
 animals$month_left <- format(animals$date_left, "%m")
@@ -267,12 +266,14 @@ animals$month_left <- format(animals$date_left, "%m")
 clean_months <- subset(animals, !is.na(month_left))
 
 # 3. Frequency of departures per month for each breed
-#position = "dodge" puts the bars side by side
+#position = "dodge" puts the bars side by  # 
 ggplot(data = clean_months, aes(x = month_left, fill = breed)) +
   geom_bar(position = "dodge", color = "white") 
   
 
-
+#ggplot(data = clean_months, aes(x = month_left, fill = breed)) +
+  geom_bar(color = "white") 
+  
 
 
 ```
