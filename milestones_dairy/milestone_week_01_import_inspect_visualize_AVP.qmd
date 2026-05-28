@@ -64,7 +64,7 @@ Next we want to confirm where the animals.parquet file is located. It is in "dat
 
 
 ```{r}
-read_parquet("data/intermediate_files/animals.parquet")
+read_parquet("c:/GitHub/posit_spring_2026/data/intermediate_files/animals.parquet")
 
 
 ```
@@ -74,7 +74,7 @@ Now it is your turn. Write some code in this chunk that will read in the file na
 ```{r}
 #| label: recreation-import
 #hint the function to read in a parquet file is the same as the code to read a csv file except replace 'csv' with 'parquet'
-animals<-read_parquet("data/intermediate_files/animals.parquet")
+animals<-read_parquet("c:/GitHub/posit_spring_2026/data/intermediate_files/animals.parquet")
 
 
 ```
@@ -116,7 +116,7 @@ Check number_of_rows:
 
 ```{r, echo=FALSE}
 
-waldo::compare(number_of_rows, read_rds('milestones_dairy/data_milestones/solutions_week_01_number_of_rows.rds'))
+waldo::compare(number_of_rows, read_rds("data_milestones/solutions_week_01_animals_common_breed.rds"))
 
 ```
 
@@ -124,7 +124,7 @@ Check counts:
 
 ```{r, echo=FALSE}
 
-waldo::compare(counts, read_rds('milestones_dairy/data_milestones/solutions_week_01_counts.rds'))
+waldo::compare(counts, read_rds("data_milestones/solutions_week_01_animals_common_breed.rds"))
 
 ```
 
@@ -229,9 +229,14 @@ Write your extension code in the following chunk:
 
 ```{r}
 #| label: extension
-summary(animals)
+summary(animals) 
 animals|>
   filter(is.na(sex)|sex!="female")
+
+##Using %in% instead of the sex!="female"
+ugly <-animals|>
+  filter(sex %in% "male")
+
 ##No non-females in this dataset
 ggplot() +
   geom_violin(
@@ -239,6 +244,16 @@ ggplot() +
       filter(!is.na(age_left), !is.na(breed), breed != "-", age_left > 365),
     mapping = aes(x = breed, y = age_left),
     drop = FALSE
+  )
+  
+  ##Violin plot redux
+ggplot() +
+  geom_violin(
+    data = animals |>
+      filter(!is.na(age_left), !is.na(breed), breed != "-", age_left > 365),
+    mapping = aes(x = breed, y = age_left),
+    drop = FALSE,
+    scale="width"
   )
 
 ##Exploring reason for leaving (sold vs. died) with the help of AI & excluding anyone that didn't have a sold or died date
@@ -273,3 +288,5 @@ ggplot(
   ) 
   
 ```
+
+
