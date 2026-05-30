@@ -1,3 +1,4 @@
 {
-    "workbench.colorTheme": "Default Positron Dark"
+    "workbench.colorTheme": "Default Positron Dark",
+    "editor.mouseWheelZoom": true
 }

@@ -162,7 +162,20 @@ Use the code chunk below to create the plot above. Hint: if your geom_smooth lin
 
 ```{r}
 #| label: recreation-plot
+ggplot(
+  data=dim_at_bred,
+  mapping=aes(x=floordate_month, y=q97,color=lact_group,fill=lact_group)
+) +
+  geom_point() +
+  geom_smooth(span=.2,linewidth=2,alpha=.2) +
+  facet_wrap(facets=vars(lact_group,location_event),scales="free") +
+  labs(
+    x="floordate_month",
+    y="q97",
+    color="lact_group"
+  )
 
+#Unsure why Lact1 graph in the original shows y axis and data up to 1000 DIM. My graphs for Lact1 make more logical sense for DIM at 1st breeding. Must have been bad data removed/cleaned up (ie 1000 DIM is actually 100 DIM)? Otherwise the Lact 0, 2, and 3+ graphs all match up with the one I generated!
 
 ```
 
