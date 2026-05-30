@@ -34,10 +34,10 @@ Before you begin, you will need to import your data set. Use the code chunk belo
 
 ```{r}
 #| label: recreation-import
-readr::read_csv().read_csv()
+getwd()
 #add code to read in the events file here
-events_formatted<-read_csv(path="C:\GitHub\posit_spring_2026-1\data\intermediate_files\events_formatted.parquet")
-events_formatted |>
+events_formatted<-read_parquet("data/intermediate_files/events_formatted.parquet") |>
+
   add_new_variables()
 
 
@@ -109,22 +109,28 @@ Work in the code chunk below. Save the result as `dim_at_bred`. We will use the 
 ```{r}
 #| label: recreation-summary
 #
-events_formatted |>
-  filter(floordate_month>=2023-04-01, event=="BRED1") |>
+dim_at_bred<-events_formatted |>
+  filter(floordate_month>=(lubridate::ymd('2023-04-01')), event=="BRED1") |>
   group_by(location_event, lact_group, floordate_month) |>
-    dim_at_bred<-summarize(
-        mean(dim_event,na.rm=TRUE),
-        sd(dim_event,na.rm=TRUE),
-        median(dim_event,na.rm=TRUE),
-        min(dim_event,na.rm=TRUE),
-        max(dim_event,na.rm=TRUE),
-        quantile(dim_event, probs = 0.97),na.rm=TRUE
-        )
+  summarize(
+        mean=mean(dim_event,na.rm=TRUE),
+        sd=sd(dim_event,na.rm=TRUE),
+        median=median(dim_event,na.rm=TRUE),
+        min=min(dim_event,na.rm=TRUE),
+        max=max(dim_event,na.rm=TRUE),
+        q97=quantile(dim_event, probs = 0.97,na.rm=TRUE)
+        ) |>
+          ungroup()
 
 
 
--  
+
+
+
 ```
+
+
+
 
 Run the following code chunk to test whether you have the same answer as the solution:
 
