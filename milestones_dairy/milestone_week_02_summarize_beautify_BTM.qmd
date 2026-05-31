@@ -187,7 +187,7 @@ Bonus: Try something with missing values.
 
 ```{r}
 age_at_fresh<-events_formatted |>
-  filter(floordate_month>=(lubridate::ymd('2023-04-01')), event=="FRESH1",lact_number<4) |>
+  filter(floordate_month>=(lubridate::ymd('2019-04-01')), event=="FRESH1",lact_number<4) |>
   group_by(location_event, lact_group, floordate_month,age_event) |>
   summarize(
         mean=mean(age_event,na.rm=TRUE),
@@ -211,7 +211,7 @@ GraphAgeAtCalvingByLactation<-ggplot(
     color="Lactation Group",
     fill="Lactation Group",
     title="Age in Days at Calving by Lactation Group",
-    subtitle="Example Herd 210",
+    subtitle="Example Herd 210 April 2019-2026",
     caption="Prepared by Dr Blaine Melody"
   )
 
