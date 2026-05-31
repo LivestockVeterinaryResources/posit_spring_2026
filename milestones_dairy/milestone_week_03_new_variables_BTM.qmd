@@ -51,11 +51,41 @@ events<-read_parquet(here::here('data/intermediate_files/events_formatted.parque
          contains('remark'), 
          contains('protocols') 
          )%>%
-  filter(event_type %in% 'health')
-  
-  
+  filter(event_type %in% 'health',event %in% c("MAST","LAME"),lact_number>0) |>
+  fxn_add_event_counts() |>
+  mutate(
+    category_dop_event = case_when(
+      dop_event>0 & dop_event<=100        ~ "Early Lactation",
+      dop_event>100 & dop_event<=200      ~ "Mid Lactation",
+      dop_event>200                       ~ "Late Lactation"
+      )
+    ) |>
+  floordate_month<-floor_date(date_event,"months")
+
+event_counts_by_month<-events |>
+  distinct(id_animal,event,floordate_month,category_dop_event)
+
+#Not sure why this fxn_add_event_counts() and mutate are not working unless it is move BEFORE floordate_month creation? If I highlight the section an run function, no problem. If I click Run Cell, it breaks. Logically I added in order following directions but this would give me errors. 
+
 ```
 
+
+  # 
+  # The fancy function (fxn_add_event_counts) to add event counts is written as this: library(tidyverse)
+
+#fxn_add_event_counts<-function(df){
+  
+#  df%>%
+ #   mutate(floordate_month = floor_date(date_event, 'months'))%>%
+#    arrange(id_animal, id_animal_lact, event, date_event)%>%
+ #   group_by(id_animal_lact, lact_number, event)%>%
+ #   mutate(event_count_lact = 1:n())%>%
+ #   ungroup()%>%
+ #   arrange(id_animal, id_animal_lact, event, date_event)%>%
+ #   group_by(id_animal, event)%>%
+ #   mutate(event_count_animal = 1:n())%>%
+ #   ungroup()
+#}
 
 1.  add a pipe to filter `events` further so you only have only one or 2 unique health events that are interesting to you. The example in the solution is based on 'NAVEL' and 'SEPTIC' events, but choose anything you want. If it is not NAVEL and SEPTIC don't worry about the solutions not matching in this milestone.
 
@@ -92,7 +122,7 @@ Run the chunk below to see the example graphics. . . . your graphics can be pret
 
 knitr::include_graphics(('milestones_dairy/images/milestone4_disease_by_phase.jpg'))
 
-
+#Doesn't work for me???
 
 ```
 
