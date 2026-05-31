@@ -162,7 +162,7 @@ Use the code chunk below to create the plot above. Hint: if your geom_smooth lin
 
 ```{r}
 #| label: recreation-plot
-ggplot(
+GraphVWPbyLGRP<-ggplot(
   data=dim_at_bred,
   mapping=aes(x=floordate_month, y=q97,color=lact_group,fill=lact_group)
 ) +
@@ -174,6 +174,7 @@ ggplot(
     y="q97",
     color="lact_group"
   )
+GraphVWPbyLGRP
 
 #Unsure why Lact1 graph in the original shows y axis and data up to 1000 DIM. My graphs for Lact1 make more logical sense for DIM at 1st breeding. Must have been bad data removed/cleaned up (ie 1000 DIM is actually 100 DIM)? Otherwise the Lact 0, 2, and 3+ graphs all match up with the one I generated!
 
@@ -185,5 +186,39 @@ Using the code chunk below, investigate a research question about this data, usi
 Bonus: Try something with missing values.
 
 ```{r}
+age_at_fresh<-events_formatted |>
+  filter(floordate_month>=(lubridate::ymd('2023-04-01')), event=="FRESH1",lact_number<4) |>
+  group_by(location_event, lact_group, floordate_month,age_event) |>
+  summarize(
+        mean=mean(age_event,na.rm=TRUE),
+        sd=sd(age_event,na.rm=TRUE),
+        median=median(age_event,na.rm=TRUE),
+        min=min(age_event,na.rm=TRUE),
+        max=max(age_event,na.rm=TRUE),
+        q97=quantile(age_event, probs = 0.97,na.rm=TRUE)
+        ) |>
+          ungroup()
+
+GraphAgeAtCalvingByLactation<-ggplot(
+  data=age_at_fresh,
+  mapping=aes(x=floordate_month, y=q97,color=lact_group,fill=lact_group)
+) +
+  geom_smooth(span=.2,linewidth=2,alpha=.2) +
+  facet_wrap(facets=vars(lact_group),scales="free_y",nrow=3) +
+  labs(
+    x="Date Fresh",
+    y="Days of Age",
+    color="Lactation Group",
+    fill="Lactation Group",
+    title="Age in Days at Calving by Lactation Group",
+    subtitle="Example Herd 210",
+    caption="Prepared by Dr Blaine Melody"
+  )
+
+GraphAgeAtCalvingByLactation
+GraphAgeAtCalvingByLactation + theme_bw()
+GraphAgeAtCalvingByLactation + theme_light()
+GraphAgeAtCalvingByLactation + theme_void()
+GraphAgeAtCalvingByLactation + theme_dark()
 
 ```
