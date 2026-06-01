@@ -121,7 +121,8 @@ dim_at_bred1 <- events_formatted1 |>
     max = max(dim_event, na.rm = TRUE),
     q97 = quantile(dim_event, probs = 0.97, na.rm = TRUE),
     n = sum(!is.na(dim_event))
-  )
+  ) |>
+    ungroup()
 dim_at_bred1
 
 ```
@@ -157,6 +158,13 @@ Use the code chunk below to create the plot above. Hint: if your geom_smooth lin
 ```{r}
 #| label: recreation-plot
 
+dim_bred_plot <- dim_at_bred1 |>
+  ggplot(mapping = aes(x = floordate_month, y = q97, color = lact_group, fill = lact_group), ) +
+  geom_point(size = 0.3) +
+  geom_smooth(linewidth = 1, span = 0.2, alpha = 0.3) +
+  facet_wrap(facets = vars(lact_group), scales = "free") +
+  labs(x = "floordate_month", y = "q97", color = "lact_group")
+dim_bred_plot
 
 ```
 
