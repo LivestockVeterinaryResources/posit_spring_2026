@@ -61,7 +61,7 @@ events<-read_parquet(here::here('data/intermediate_files/events_formatted.parque
       ),
     #) |>
     #  mutate(
-        floordate_year=floor_date(date_event,"year")
+      floordate_year=floor_date(date_event,"year")
       )
   #events$floordate_month_test<-floor_date(events$date_event,"months")
 #I can mutate above variables separately or in one move using pipes. If I want to do the dangerous way without pipes and MODIFY the original data set I can use the $ line of code at 66.
@@ -121,11 +121,44 @@ Create 2 new variables for your events named: `Disease` and `Treatment`. Use cas
 Run the chunk below to see the example graphics. . . . your graphics can be prettier!
 
 ```{r}
+#starting "small" with just mastitise event data
 
+events |>
+  mutate(
+    Disease = case_when(
+      locate_lesion=="LR"                         ~ "Left Rear Only",
+      locate_lesion>="LR"                         ~ "Left Rear Affected",
+      locate_lesion=="RR"                         ~ "Right Rear Only",
+      locate_lesion>="RR"                         ~ "Right Rear Affected",
+      locate_lesion=="LF"                         ~ "Left Front Only",
+      locate_lesion>="LF"                         ~ "Left Front Affected",
+      locate_lesion=="RF"                         ~ "Right Front Only",
+      locate_lesion>="RF"                         ~ "Right Front Affected",
+      locate_lesion %in% c("LR","RR","LF","RF")                 ~ "Only One Affected",
+      #locate_lesion                           ~ "Two Affected",
+      #locate_lesion %in% c()                              ~ "Three Affected",
+      remark_letters2=="ALL"              ~ "All Four Affected",
+      locate_lesion>="LF" &  locate_lesion>="RF"                        ~ "Both Front",
+      locate_lesion>="LR" &  locate_lesion>="RR"                         ~ "Both Rear",
+      locate_lesion>="LF" &  locate_lesion>="LR"                         ~ "Both Left",
+      locate_lesion>="RF" &  locate_lesion>="RR"                         ~ "Both Right",
+      )
+    Treatment = case_when(
+      remark_letters1=="NOT"                         ~ "No Treatment",
+      remark_letters1=="TOD"                         ~ "Today IMM",
+      remark_letters1=="SPC"                         ~ "SpectraMast LC IMM",
+      remark_letters1=="AMX"                         ~ "AmoxiMast IMM",
+      locate_lesion=="LR"                         ~ "Killed Quarter",
 
+    )
+    )
+
+getwd()
 knitr::include_graphics(('milestones_dairy/images/milestone4_disease_by_phase.jpg'))
-
+milestones_dairy\images\milestone4_disease_by_phase.jpg
 #Doesn't work for me???
+
+
 
 ```
 
@@ -143,11 +176,34 @@ Note: your graphics should be much prettier than the examples!! ;)
 ```{r}
 #graph your event counts over time here.
 
+MASTLAMEbyLactPhaseSummary<-event_counts_by_month |>
+  group_by(event, floordate_month, category_dop_event) |>
+  summarize(
+    n_event=n(),
+    n_distinct_id_event=n_distinct(id_animal),
+    min_count_MAST=min()
+    avg_count_MAST
+    max_count_MAST
+    min_count_LAME
+    avg_count_LAME
+    max_count_LAME
+  )
+
+
+MASTLAMEByLactPhaseGraph1<-
+  ggplot(
+    data=event_counts_by_month,
+    mapping=aes(x=event)
+  ) +
+    geom_bar()
+
+MASTLAMEByLactPhaseGraph1
+
 ```
 
 
 ### Extension Options
 
-1)  Improve your description for your choosen events
+1)  Improve your description for your chosen events
 2)  Choose a new disease
 3)  Choose to add multiple farms (either your own data or other example herds)
