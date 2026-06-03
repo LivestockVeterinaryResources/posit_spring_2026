@@ -198,11 +198,18 @@ dim_lame_plot <- dim_lame |>
   facet_wrap(facets = vars(lact_group))
 dim_lame_plot
 ## Lameness data too sparse. Try something else
+```
 
+```{r}
 # Difference in abortion time relative to gestational days across lactational groups
-abort_day_gest <- events_formatted |>
-  mutate(days_abort = as.numeric(date_aborted - date_concieved)) |>
-  filter(date_event > as.Date("2023-05-01"), event == "ABORT1") |>
+abort_day_gest_pre <- events_formatted |>
+  #filter(id_animal %in% "Example Herd 210_20268_08/30/15") |>
+  mutate(days_abort = as.numeric(date_concieved - date_aborted)) |>
+  filter(date_event > as.Date("2023-05-01"), event %in% c("ABORT1"))
+  
+
+
+abort_day_gest <- abort_day_gest_pre |>
   group_by(lact_group, floordate_month) |>
   summarize(
     mean = mean(days_abort, na.rm = TRUE),
@@ -220,11 +227,16 @@ abort_day_gest
 # Visualize abort_day_gest
 abort_plot <- abort_day_gest |>
   ggplot(mapping = aes(x = floordate_month, y = median, color = lact_group, fill = lact_group)) +
-  geom_smooth(alpha = 0.3) +
-  facet_wrap(facets = vars(lact_group))
+  geom_point(size = 1) +
+  geom_smooth(alpha = 0.3, span = 2) +
+  facet_wrap(facets = vars(lact_group), scales = "free")
+labs(title = "abort_plot_1")
 abort_plot
+```
 
-# The first abortion data seems to be showing time from abortion to subsequent conception, since median days are negative. I want to see when abortion is happening relative to bred date.
+```{r}
+## ~ ~ ~ Ignore this chunk - extra code used for troubleshooting ~ ~ ~ ##
+# The first abortion data seems to be showing time from abortion to subsequent conception, since median days are negative. I want to see when abortion is happening relative to the immediate past bred date.
 # Let's try again
 ## This one didn't work at the pivot step because there were some animals with multiple ABORT1 or BRED1 events ##
 # abort_day_gest1 <- events_formatted |>
@@ -255,32 +267,37 @@ abort_plot
 #  |>
 #    ungroup()
 #abort_day_gest1
+```
 
+```{r}
 ## Try #3
-
+test <- events_formatted |>
+  select(event, R) |>
+  distinct()
 breds <- events_formatted |>
   filter(event == "BRED1") |>
-  select(id, date_bred = date_event, lact_group, floordate_month)
+  select(id_animal_lact, date_bred = date_event)
 
 aborts <- events_formatted |>
   filter(event == "ABORT1") |>
-  select(id, date_aborted = date_event, lact_group, floordate_month)
+  select(id_animal_lact, date_aborted = date_event, lact_group, floordate_month)
 
 abort_day_gest2 <- aborts |>
   left_join(
     breds,
     join_by(
-      id,
+      id_animal_lact,
       closest(date_aborted >= date_bred)
     )
   ) |>
   mutate(
     days_abort = as.numeric(date_aborted - date_bred)
   )
+  skim(abort_day_gest2)
 
   abort_day_gest3 <- abort_day_gest2 |>
-  filter(!is.na(date_bred), days_abort < 500) |> # Added logical clause due to an animal with a 2041 days_abort value
-    group_by(lact_group.x, floordate_month.x) |>
+  filter(!is.na(date_bred)) |>
+    group_by(lact_group, floordate_month) |>
   summarize(
     mean = mean(days_abort, na.rm = TRUE),
     sd = sd(days_abort, na.rm = TRUE),
@@ -294,11 +311,67 @@ abort_day_gest2 <- aborts |>
 
 # That seemed to work. Let's visualize now
 abort_day_plot <- abort_day_gest3 |>
-  ggplot(mapping = aes(x = floordate_month.x, y = median, color = lact_group.x, fill = lact_group.x)) +
+  ggplot(mapping = aes(x = floordate_month, y = median, color = lact_group, fill = lact_group)) +
   geom_point(size = 1) +
   geom_smooth(span = 2, alpha = 0.3) +
-  facet_wrap(facets = vars(lact_group.x)) +
+  facet_wrap(facets = vars(lact_group)) +
   labs(x = "month", y = "median")
 abort_day_plot
 # Graphs have a relatively similar shape for each lactation group. LACT 1 seems to have slighlty higher gestational age at abortion. LACT 3+ seems to have more consistent gestational age at abortion across time. Not sure how useful this information was...
+# After discussing with Nora: this is a bit nonsensical, as ABORT1 is not necessarily tied to BRED1, as I thought initially, hence why some cows have very long days_abort. Now I know ABORT1 and date_concieved are tied to lactation, so I can just filter by ABORT1 and use date_concieved and date_aborted as in my first (accidentally sucessful) attempt
+```
+```{r}
+## Cleaner (?) version
+abort_clean <- events_formatted |>
+ # filter(id_animal %in% "Example Herd 210_20268_08/30/15") |>
+  mutate(abort_gest_length = as.numeric(date_concieved - date_aborted)) |>
+    filter(date_event > as.Date("2023-05-01"), event %in% c("ABORT1")) |>
+    mutate(category_abort = case_when(
+      abort_gest_length < 42 ~ 'Embryonic loss',
+      abort_gest_length >= 42 & abort_gest_length <= 90 ~ 'First Tri',
+      abort_gest_length > 90 & abort_gest_length <= 180 ~ 'Second Tri',
+      abort_gest_length > 180 & abort_gest_length <=260 ~ 'Third Tri'
+    ))
+
+abort_clean_summary <- abort_clean |>
+  group_by(lact_group) |>
+  mutate(
+    total_ct = sum(n())
+  ) |>
+    ungroup() |>
+  group_by(lact_group, #floordate_month,
+   total_ct, category_abort) |>
+  summarize(
+    mean = mean(abort_gest_length, na.rm = TRUE),
+    sd = sd(abort_gest_length, na.rm = TRUE),
+    median = median(abort_gest_length, na.rm = TRUE),
+    q97 = quantile(abort_gest_length, probs = 0.97, na.rm = TRUE),
+    n = sum(!is.na(abort_gest_length)),
+    min = min(abort_gest_length, na.rm = TRUE),
+    max = max(abort_gest_length, na.rm = TRUE),
+    ct = sum(n())
+  ) |>
+    ungroup() |>
+mutate(pct = round(ct / total_ct, digit = 0))
+```
+
+```{r}
+  abort_category_plot <- abort_clean_summary |>
+    ggplot(mapping = aes(x = lact_group, y = n, fill = category_abort)) +
+    geom_col(position = 'fill') +
+    geom_text(aes(
+      label = paste0(pct, ct)
+    )) +
+    scale_fill_brewer(palette = 'PRGn',
+    name = 'Abortion category',
+    na.value = "grey80") +
+    labs(title = 'Counts of abortions by gestational length within lactation group',
+    y = 'Counts',
+    x = 'Lactation group'
+    ) +
+      facet_wrap(facets = vars(category_abort))
+  abort_category_plot 
+
+  #To make a total counts for each lactation group, ???
+  # Do geom_column (use calculated percentaged), use geom_text to put numeric value on bar for counts
 ```
