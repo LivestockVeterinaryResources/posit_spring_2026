@@ -116,41 +116,21 @@ dim_at_bred<-events_formatted|>
     date_event >= (today() - years(3))
     )|>
   group_by(
+    event,
     location_event,
     lact_group,
     floordate_month
   )|>
   summarize(
     mean = mean(dim_event, na.rm = TRUE),
-    
+    sd = sd(dim_event, na.rm = TRUE),
+    median = median(dim_event, na.rm = TRUE),
+    min = min(dim_event, na.rm = TRUE),
+    max = max(dim_event, na.rm = TRUE),
+    q97 = quantile(dim_event, 0.97, na.rm = TRUE), 
+    n = n()
     )|>
       ungroup()
-  
-#dim_at_bred<- events_formatted|>
- # filter(event=="BRED1")|>
-  #filter(date_event > max(date_event, na.rm=TRUE) - years(3)) |>
-  #group_by(event,location_event, lact_group, floordate_month)|>
-
-dim_at_bred <- events_formatted |>
-  filter(event == "BRED1",
-         date_event >= max(events_formatted$date_event, na.rm = TRUE) - years(3)) |>
-  group_by(id_animal_lact) |>
-  ungroup()
-
-summary_dim_bred <- dim_at_bred |>
-  group_by(location_event, lact_group, floordate_month = floor_date(date_event, "month")) |>
-  summarize(
-    mean   = mean(dim_event, na.rm = TRUE),
-    sd     = sd(dim_event, na.rm = TRUE),
-    median = median(dim_event, na.rm = TRUE),
-    min    = min(dim_event, na.rm = TRUE),
-    max    = max(dim_event, na.rm = TRUE),
-    q97    = quantile(dim_event, 0.97, na.rm = TRUE),
-    n      = n(),
-    .groups = "drop"
-  ) |>
-  arrange(location_event, lact_group, floordate_month)
-summary_dim_bred
 
 ```
 
@@ -184,7 +164,10 @@ Use the code chunk below to create the plot above. Hint: if your geom_smooth lin
 
 ```{r}
 #| label: recreation-plot
-
+ggplot(dim_at_bred, mapping = aes(x=floordate_month, y=q97))+
+  geom_point(mapping = aes(color = lact_group),size=0.2)+
+  geom_smooth(aes(color= lact_group,fill = lact_group),span = 0.2)+
+  facet_wrap(facets=vars(lact_group,location_event), scales = "free")
 
 ```
 
@@ -193,5 +176,53 @@ Use the code chunk below to create the plot above. Hint: if your geom_smooth lin
 Using the code chunk below, investigate a research question about this data, using the data wrangling skills you learned this week. Bonus: Try something with missing values.
 
 ```{r}
+age_at_sold_pre<-events_formatted|>
+  filter(
+    event=="SOLD1",
+    date_event >= (today() - years(3))
+    )|>
+  mutate(floordate_fresh = floor_date(date_fresh,"months"))|>
+  filter(!(is.na(floordate_fresh)))
+  
+  age_at_sold<-age_at_sold_pre|>
+    group_by(
+    event,
+    location_event,
+    lact_group,
+    floordate_fresh
+  )|>
+  summarize(
+    mean = mean(dim_event, na.rm = TRUE),
+    sd = sd(dim_event, na.rm = TRUE),
+    median = median(dim_event, na.rm = TRUE),
+    min = min(dim_event, na.rm = TRUE),
+    max = max(dim_event, na.rm = TRUE),
+    q97 = quantile(dim_event, 0.97, na.rm = TRUE), 
+    n = n()
+    )|>
+      ungroup()
+```
+```{r}
+ggplot(age_at_sold_pre)+
+  #geom_density(aes(x=dim_event))+
+  geom_histogram(aes(x=dim_event))+
+    facet_wrap(facets=vars(lact_group,location_event))
+
+
+```
+
+
+```{r}
+ggplot(age_at_sold, mapping = aes(x=floordate_fresh, y=q97))+
+  geom_point(mapping = aes(color = lact_group),size=0.2)+
+  geom_smooth(aes(color= lact_group,fill = lact_group),span = 0.2)+
+  facet_wrap(facets=vars(lact_group,location_event), scales = "free")+
+  labs(title = "DIM Sold by Fresh Date and lactation ",
+       x="Fresh Date",
+       y="DIM",
+       caption="Posit Sample Herd")
+       
+       
+
 
 ```
