@@ -121,11 +121,11 @@ Create 2 new variables for your events named: `Disease` and `Treatment`. Use cas
 Run the chunk below to see the example graphics. . . . your graphics can be prettier!
 
 ```{r}
-#starting "small" with just mastitise event data
+#Focusing on MAST data but trying to be inclusive for both MAST and LAME data so working on QQ categories to start
 
-events |>
+events_QQ_Disease_Treatment<-events |>
   mutate(
-    # Count how many of the 4 unique patterns appear in the string
+    # Count how many of the 4 unique patterns appear in the string (doesn't need a delimiter)
     quarter_count = str_count(locate_lesion, "LR|RR|LF|RF"),
 
     Disease_QQ_count = case_when(
@@ -149,10 +149,10 @@ events |>
       .default                      = "Check Data"
       ),
     Disease_QQ_Category1Total = case_when(
-      Disease_QQ_Category1 %in% ("Left Rear Only","Left Rear Included")   ~"Left Rear Total",
-      Disease_QQ_Category1 %in% ("Right Rear Only","Right Rear Included")   ~"Right Rear Total",
-      Disease_QQ_Category1 %in% ("Left Front Only","Left Front Included")   ~"Left Front Total",
-      Disease_QQ_Category1 %in% ("Right Front Only","Right Front Included")   ~"Right Front Total",
+      Disease_QQ_Category1 %in% c("Left Rear Only","Left Rear Included")   ~"Left Rear Total",
+      Disease_QQ_Category1 %in% c("Right Rear Only","Right Rear Included")   ~"Right Rear Total",
+      Disease_QQ_Category1 %in% c("Left Front Only","Left Front Included")   ~"Left Front Total",
+      Disease_QQ_Category1 %in% c("Right Front Only","Right Front Included")   ~"Right Front Total",
       .default                      = "Check Data"
     ),
     Disease_QQ_Category2 =case_when(
@@ -168,6 +168,7 @@ events |>
       remark_letters1=="SPC"                         ~ "SpectraMast LC IMM",
       remark_letters1=="AMX"                         ~ "AmoxiMast IMM",
       locate_lesion=="LR"                         ~ "Killed Quarter",
+      .default="Check Data"
     )
     )
 
@@ -190,7 +191,7 @@ events |>
 
 getwd()
 knitr::include_graphics(('milestones_dairy/images/milestone4_disease_by_phase.jpg'))
-milestones_dairy\images\milestone4_disease_by_phase.jpg
+
 #Doesn't work for me???
 
 
