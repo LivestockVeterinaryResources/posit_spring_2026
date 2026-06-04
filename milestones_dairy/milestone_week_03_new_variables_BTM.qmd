@@ -8,7 +8,7 @@ format:
 ---
 
 ```{r, echo = FALSE, warning=FALSE, message = FALSE}
-
+#| label: something
 
 # This chunk is already finished for you, you don't need to modify anything here
 library(tidyverse) #this includes many packages and is the main package used in nearly all data wrangling
@@ -70,6 +70,15 @@ event_counts_by_month<-events |>
 
  #?floor_date
 #This can be used for a TON of date and time rounding, etc. More to come in other milestones
+```
+
+
+```{r}
+ggplot(event_counts_by_month) +
+  geom_bar(mapping=aes(x=floordate_month))
+
+
+
 ```
 
 
@@ -224,14 +233,33 @@ MASTLAMEbyLactPhaseSummary<-event_counts_by_month |>
     avg_count_LAME
     max_count_LAME
   )
-
+##Gemini suggested code layout "works", but doesn't give what I wanted to see. Average (min/max) case count per month over X period of time.
+MASTLAMEbyLactPhaseSummary <- event_counts_by_month |>
+  group_by(floordate_month, category_dop_event) |>
+  summarize(
+    n_event = n(),
+    n_distinct_id_event = n_distinct(id_animal),
+    
+    # Calculate stats for MAST events only
+    min_count_MAST = min(n_event[event == "MAST"], na.rm = TRUE),
+    avg_count_MAST = mean(n_event[event == "MAST"], na.rm = TRUE),
+    max_count_MAST = max(n_event[event == "MAST"], na.rm = TRUE),
+    
+    # Calculate stats for LAME events only
+    min_count_LAME = min(n_event[event == "LAME"], na.rm = TRUE),
+    avg_count_LAME = mean(n_event[event == "LAME"], na.rm = TRUE),
+    max_count_LAME = max(n_event[event == "LAME"], na.rm = TRUE),
+    
+    .groups = "drop"
+  )
 
 MASTLAMEByLactPhaseGraph1<-
   ggplot(
-    data=event_counts_by_month,
-    mapping=aes(x=event)
+    data=event_counts_by_month
   ) +
-    geom_bar()
+    geom_bar(mapping=aes(x=floordate_month #y=category_dop_event
+  )
+  )
 
 MASTLAMEByLactPhaseGraph1
 
