@@ -41,6 +41,37 @@ In this milestone, you'll write some of the code that was written for you in mil
 events<-read_parquet(here::here('data/intermediate_files/events_formatted.parquet'))%>%
   filter(event_type %in% 'health')
 
+colnames(events)
+
+
+
+#filtered dataset
+
+events_filtered <- events |>
+  filter(event %in% c("NAVEL", "SEPTIC")) |>
+mutate(floordate_month = floor_date(date_event, "months")) |>
+  arrange(id_animal, event, date_event) |>
+  fxn_add_event_counts() |>
+  mutate(age_event = as.numeric(date_event - date_birth),
+#create new variables
+Disease = case_when(
+      event == "NAVEL" ~ "Navel",
+      event == "SEPTIC" ~ "Septicemia",
+      TRUE ~ "Other"
+    ),
+    Treatment = case_when(
+    str_starts(remark, "PLY") ~ "PLY",
+    str_starts(remark, "PEN") ~ "PEN",
+    remark == "EXC+PEN" ~ "EXC+PEN",
+    remark == "EXCNL+PEN" ~ "EXCNL+PEN",
+    remark == "BAY+PEN" ~ "BAY+PEN",
+    TRUE ~ "X"))
+
+colnames(events_filtered)
+
+# checking and couting the new variables
+events_filtered|>
+count(Disease,Treatment)
 
 
 ```
@@ -77,7 +108,106 @@ image_read('milestones_dairy/images/milestone4_disease_by_phase.jpg')
 knitr::include_graphics('milestones_dairy/images/milestone4_disease_over_time.jpg')
 knitr::include_graphics('milestones_dairy/images/milestone4_disease_by_phase.jpg')
 
+### New tables and plots
 
+##Disease by time
+
+event_counts <- events_filtered |>
+  count(floordate_month, Disease)
+
+event_counts
+
+events_filtered|>
+  count(floordate_month,Disease)|>
+  ggplot(aes(x=floordate_month, y=n, fill=Disease))+
+  geom_col()+ 
+  labs(
+    title="Navel & septicemia events over time",
+    x="Month",
+    y="Number of events",
+    Fill="Disease"
+  )
+
+#So, in the graph, it is possible to see that septicemia has increased over the time. 
+
+
+
+##Disease by animal age at event
+
+events_filtered|>
+  ggplot(aes(x=Disease, y=age_event, fill=Disease)) +
+  geom_boxplot()+
+  labs(
+    title="Age at event",
+    x="Disease",
+    y="Age at event (days)",
+    fill="Disease"
+  )
+
+
+#In the previous graph, it is shown that most of cases were during preweaning period (which was expected!). Then, a new graph limiting for 56 days (8 weeks). 
+
+events_filtered |>
+  filter(age_event<=56)|> 
+  ggplot(aes(x = age_event, fill = Disease)) +
+  geom_histogram(binwidth = 7, na.rm = TRUE) + #it combines the bars by week
+  facet_wrap(vars(Disease), scales = "free_y") +
+  labs(
+    title = "Age distribution of events",
+    x = "Age at event (days)",
+    y = "Number of events",
+    fill = "Disease"
+  )
+
+
+### Antimicrobial usage
+
+events_filtered |>
+  filter(age_event <= 56) |>
+  mutate(year_event = lubridate::year(date_event)) |>
+  count(year_event, Treatment) |>
+  ggplot(aes(x = factor(year_event), y = n, fill = Treatment)) +
+  geom_col(position = "dodge") +
+  labs(
+    title = "Treatment (antimicrobial) use by year (≤56 days)",
+    x = "Year",
+    y = "Number of events",
+    fill = "Treatment"
+  )
+
+#by disease
+events_filtered |>
+  filter(age_event <= 56) |>
+  mutate(year_event = lubridate::year(date_event)) |>
+  count(year_event, Disease, Treatment) |>
+  ggplot(aes(x = factor(year_event), y = n, fill = Treatment)) +
+  geom_col(position = "dodge") +
+  facet_wrap(~ Disease) +
+  labs(
+    title = "Antimicrobial use by disease and year (≤56 days)",
+    x = "Year",
+    y = "Number of events",
+    fill = "Treatment"
+  )
+
+#by disease
+events_filtered |>
+  filter(age_event <= 56) |>
+  mutate(year_event = lubridate::year(date_event)) |>
+  count(year_event, Disease, Treatment) |>
+  ggplot(aes(x = factor(year_event), y = n, fill = Treatment)) +
+  geom_col() +
+  facet_wrap(~ Disease) +
+  labs(
+    title = "Antimicrobial use by disease and year (≤56 days)",
+    x = "Year",
+    y = "Number of events",
+    fill = "Treatment"
+  )
+
+
+#Comments
+#In cases of navel, they stopped using polyflex (ampicillin trihydrate) and increase the use of Penicillin.
 
 ```
 
