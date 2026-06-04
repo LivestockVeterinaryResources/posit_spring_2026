@@ -125,33 +125,68 @@ Run the chunk below to see the example graphics. . . . your graphics can be pret
 
 events |>
   mutate(
-    Disease = case_when(
-      locate_lesion=="LR"                         ~ "Left Rear Only",
-      locate_lesion>="LR"                         ~ "Left Rear Affected",
-      locate_lesion=="RR"                         ~ "Right Rear Only",
-      locate_lesion>="RR"                         ~ "Right Rear Affected",
-      locate_lesion=="LF"                         ~ "Left Front Only",
-      locate_lesion>="LF"                         ~ "Left Front Affected",
-      locate_lesion=="RF"                         ~ "Right Front Only",
-      locate_lesion>="RF"                         ~ "Right Front Affected",
-      locate_lesion %in% c("LR","RR","LF","RF")                 ~ "Only One Affected",
-      #locate_lesion                           ~ "Two Affected",
-      #locate_lesion %in% c()                              ~ "Three Affected",
-      remark_letters2=="ALL"              ~ "All Four Affected",
-      locate_lesion>="LF" &  locate_lesion>="RF"                        ~ "Both Front",
-      locate_lesion>="LR" &  locate_lesion>="RR"                         ~ "Both Rear",
-      locate_lesion>="LF" &  locate_lesion>="LR"                         ~ "Both Left",
-      locate_lesion>="RF" &  locate_lesion>="RR"                         ~ "Both Right",
-      )
+    # Count how many of the 4 unique patterns appear in the string
+    quarter_count = str_count(locate_lesion, "LR|RR|LF|RF"),
+
+    Disease_QQ_count = case_when(
+      is.na(locate_lesion)          ~ "No Quarter Recorded",
+      quarter_count == 1            ~ "Only One Affected",
+      quarter_count == 2            ~ "Two Affected",
+      quarter_count == 3            ~ "Three Affected",
+      quarter_count == 4            ~ "All Four Affected",
+      .default                      = "Check Data"
+      ),
+      #Must put the ONLY category first, then the AFFECTED second since R reads and looks for the first condition. If I write affected first, then the only category gets "lost" in the affected column as well. If I put >1 then I am removing all "only" counts from the total for affected (not overlapping). Might make more sense to write > vs >= for clarity and just add the two (only + affected = ALL LEFT REAR CASES, etc).
+    Disease_QQ_Category1 = case_when( 
+      str_detect(locate_lesion,"LR") & quarter_count==1                        ~ "Left Rear Only",
+      str_detect(locate_lesion,"RR") & quarter_count==1                        ~ "Right Rear Only",
+      str_detect(locate_lesion,"LF") & quarter_count==1                        ~ "Left Front Only",
+      str_detect(locate_lesion,"RF") & quarter_count==1                        ~ "Right Front Only",
+      str_detect(locate_lesion,"LR") & quarter_count>1                        ~ "Left Rear Included",
+      str_detect(locate_lesion,"RR") & quarter_count>1                        ~ "Right Rear Included",
+      str_detect(locate_lesion,"LF") & quarter_count>1                        ~ "Left Front Included",
+      str_detect(locate_lesion,"RF") & quarter_count>1                        ~ "Right Front Included",
+      .default                      = "Check Data"
+      ),
+    Disease_QQ_Category1Total = case_when(
+      Disease_QQ_Category1 %in% ("Left Rear Only","Left Rear Included")   ~"Left Rear Total",
+      Disease_QQ_Category1 %in% ("Right Rear Only","Right Rear Included")   ~"Right Rear Total",
+      Disease_QQ_Category1 %in% ("Left Front Only","Left Front Included")   ~"Left Front Total",
+      Disease_QQ_Category1 %in% ("Right Front Only","Right Front Included")   ~"Right Front Total",
+      .default                      = "Check Data"
+    ),
+    Disease_QQ_Category2 =case_when(
+      str_detect(locate_lesion,"LF") & str_detect(locate_lesion,"RF") & quarter_count==2          ~ "Both Front",
+      str_detect(locate_lesion,"LR") & str_detect(locate_lesion,"RR") & quarter_count==2          ~ "Both Rear",
+      str_detect(locate_lesion,"LF") & str_detect(locate_lesion,"LR") & quarter_count==2          ~ "Both Left",
+      str_detect(locate_lesion,"RF") & str_detect(locate_lesion,"RR") & quarter_count==2          ~ "Both Right",
+      .default="Check Data"
+    ),
     Treatment = case_when(
       remark_letters1=="NOT"                         ~ "No Treatment",
       remark_letters1=="TOD"                         ~ "Today IMM",
       remark_letters1=="SPC"                         ~ "SpectraMast LC IMM",
       remark_letters1=="AMX"                         ~ "AmoxiMast IMM",
       locate_lesion=="LR"                         ~ "Killed Quarter",
+    )
+    )
 
-    )
-    )
+    #Disease = case_when(
+    #  locate_lesion=="LR"                         ~ "Left Rear Only",
+     # locate_lesion>="LR"                         ~ "Left Rear Affected",
+    #  locate_lesion=="RR"                         ~ "Right Rear Only",
+     # locate_lesion>="RR"                         ~ "Right Rear Affected",
+    #  locate_lesion=="LF"                         ~ "Left Front Only",
+    #  locate_lesion>="LF"                         ~ "Left Front Affected",
+   #   locate_lesion=="RF"                         ~ "Right Front Only",
+   #   locate_lesion>="RF"                         ~ "Right Front Affected",
+   #   is.na(locate_lesion)                         ~ "No Quarter Recorded",
+    #  locate_lesion %in% c("LR","RR","LF","RF")                 ~ "Only One Affected",
+      #locate_lesion                           ~ "Two Affected",
+      #locate_lesion %in% c()                              ~ "Three Affected",
+    #  remark_letters2=="ALL"              ~ "All Four Affected",
+      
+    
 
 getwd()
 knitr::include_graphics(('milestones_dairy/images/milestone4_disease_by_phase.jpg'))
