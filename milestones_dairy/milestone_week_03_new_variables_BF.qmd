@@ -125,8 +125,120 @@ Note: your graphics should be much prettier than the examples!! ;)
 
 ```{r}
 #graph your event counts over time here.
+# What treatments are used
+events |>
+  distinct(remark) |>
+  print(n = Inf)
+# Most common treatments used
 
+  events_remark <- events |>
+  group_by(event, remark, protocols) |> # looking within each combination of event, remark, and protocol (protocol sometimes had helpful info not included in remark)
+  summarize(
+    n = n_distinct(id_animal_lact)) |>
+      # count the number of unique animals within each of the above combinations
+    ungroup() |>
+      arrange(desc(event), desc(n))
+
+# Most common treatment summary by event to use for 'Treatment' variable
+# # Septic:
+# # # EXC+PEN > BAY+PEN > EXCNL+PEN
+# # Pneumonia:
+# # # Resflor (normal or gold) > Draxxin > Zuprevo > Zactran ~ Baytril > others 
+
+# Make new variables
+# # Not making new 'Disease' variable because there are not enough remarks to differentiate subtypes within PNEU
+# # Will just make 'Treatment' variable
+event_counts_by_month_remark <- events |>
+  group_by(event, floordate_month, category_dop_event, remark) |> # looking within each combination of month, DOP category, and remark (treatment)
+  summarize(
+    n = n_distinct(id_animal_lact)) |>
+      # count the number of unique animals within each of the above combinations
+    ungroup() |>
+
+#event_counts_by_month_remark |>
+  mutate(
+    Treatment = case_when(
+      str_detect(remark, "EXC\\+PEN") ~ "CCFA+Pen",
+      str_detect(remark, "BAY\\+PEN") ~ "Enro+Pen",
+      str_detect(remark, "EXCNL\\+PEN") ~ "EXNL+Pen",
+      str_detect(remark, "RESF|NUF") ~ "Florfenicol",
+      str_detect(remark, "DRA") ~ "Tulathromycin",
+      str_detect(remark, "ZU") ~ "Tildipirosin",
+      str_detect(remark, "ZAC") ~ "Gamithromycin",
+      str_detect(remark, "BAR|BAY") ~ "Enrofloxacin",
+      .default = "Other"
+    )
+  )
 ```
+
+
+```{r}
+# Visualizing data with 'Treatment' variable
+
+events |>
+  distinct(event) |>
+print(n = Inf)
+
+heifer_pneu_septic_plot <- event_counts_by_month_remark |>
+  ggplot() +
+  geom_col(mapping = aes(x = floordate_month, y = n, fill = Treatment), position = "dodge") +
+  facet_wrap(vars(event), nrow = 1, scales = "free")
+heifer_pneu_septic_plot
+
+# heifer_pneu_septic_plot_2 <- event_counts_by_month_remark |>
+#   ggplot() +
+#   geom_col(mapping = aes(x = floordate_month, y = n, fill = Treatment)) +
+#   facet_wrap(vars(event), nrow = 1, scales = "free")
+# heifer_pneu_septic_plot_2
+
+# heifer_pneu_septic_plot_3 <- event_counts_by_month_remark |>
+#   ggplot() +
+#   geom_col(mapping = aes(x = floordate_month, y = n), position = "dodge") +
+#   facet_grid(rows = vars(Treatment), cols = vars(event), scales = "free")
+# heifer_pneu_septic_plot_3
+
+## Too busy with floordate_month --> make new dataframe with floordate_year
+heifer_pneu_septic_yr <- event_counts_by_month_remark |>
+  mutate(
+    year = floor_date(floordate_month, "years"),
+    year2 = factor(lubridate::year(floordate_month)))
+
+#Visualize - PLOT 1 - Facet by event, treatment within year
+heifer_pneu_septic_yr_plot <- heifer_pneu_septic_yr |>
+  ggplot() +
+  geom_col(mapping = aes(x = year2, y = n, fill = Treatment), position = "dodge") +
+  facet_wrap(vars(event), nrow = 1, scales = "free") +
+  theme_grey() +
+  scale_fill_brewer(
+    palette = "RdYlBu",
+    name = "Treatment",
+    na.value = "grey80") +
+  labs(
+    title = "Counts of heifers treated for pneumonia or sepsis",
+    x = "Year",
+    y = "Counts"
+  )
+heifer_pneu_septic_yr_plot
+
+# PLOT 1 - Grid: facet by event and year, look at treatment
+heifer_pneu_septic_yr_grid <- heifer_pneu_septic_yr |>
+  ggplot() +
+  geom_col(mapping = aes(x = Treatment, y = n, fill = Treatment), position = "dodge") +
+  facet_grid(rows = vars(event), cols = vars(year2), scales = "free") +
+  theme_grey() +
+  scale_fill_brewer(
+    palette = "RdYlBu",
+    name = "Treatment",
+    na.value = "grey80") +
+  labs(
+    title = "Counts of heifers treated for pneumonia or sepsis",
+    x = "Treatment",
+    y = "Counts"
+  ) +
+  theme(axis.text.x = element_blank())
+heifer_pneu_septic_yr_grid
+```
+
 
 
 ### Extension Options
