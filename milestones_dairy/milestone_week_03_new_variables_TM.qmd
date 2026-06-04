@@ -41,7 +41,8 @@ In this milestone, you'll write some of the code that was written for you in mil
 events<-read_parquet(here::here('data/intermediate_files/events_formatted.parquet'))%>%
   filter(event_type %in% 'health')
 
-colnames(events)
+#colnames(events)
+#unique(events$event)
 
 
 
@@ -69,7 +70,7 @@ Disease = case_when(
 
 colnames(events_filtered)
 
-# checking and couting the new variables
+# checking and counting the new variables
 events_filtered|>
 count(Disease,Treatment)
 
