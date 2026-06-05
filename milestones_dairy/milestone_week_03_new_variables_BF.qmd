@@ -237,6 +237,25 @@ heifer_pneu_septic_yr_grid <- heifer_pneu_septic_yr |>
   ) +
   theme(axis.text.x = element_blank())
 heifer_pneu_septic_yr_grid
+
+# PLOT 3 - Grid with category_dop_event and event as facets
+heifer_pneu_septic_dop_by_event <- heifer_pneu_septic_yr |>
+  ggplot() +
+  geom_col(mapping = aes(x = Treatment, y = n, fill = Treatment), position = "dodge") +
+  facet_grid(rows = vars(event), cols = vars(category_dop_event), scales = "free") +
+  theme_grey() +
+  scale_fill_brewer(
+    palette = "RdYlBu",
+    name = "Treatment",
+    na.value = "grey80") +
+  labs(
+    title = "Counts of heifers treated for pneumonia or sepsis",
+    x = "Treatment",
+    y = "Counts"
+  ) +
+  theme(axis.text.x = element_blank())
+heifer_pneu_septic_dop_by_event
+# # This one is my favorite
 ```
 
 
