@@ -31,7 +31,7 @@ example_df<-read_rds(here::here('milestones_dairy/data_milestones/solutions_week
 
 In this milestone, you'll write some of the code that was written for you in milestone 2. This will familiarize you with the format of the events data.
 
-In the chunk below the events_formatted.parquet file is read in, named "events", and filtered for health events. You can just add your code to this chunk in order to acomplish the tasks listed below the chunk.
+In the chunk below the events_formatted.parquet file is read in, named "events", and filtered for health events. You can just add your code to this chunk in order to accomplish the tasks listed below the chunk.
 
 You will recognize select helper functions like starts_with() and contains(). These are used to simplify your data so there are not so many columns to look at.
 
@@ -51,7 +51,21 @@ events<-read_parquet(here::here('data/intermediate_files/events_formatted.parque
          contains('remark'), 
          contains('protocols') 
          )%>%
-  filter(event_type %in% 'health')
+  filter(event_type %in% 'health')|>
+  filter(event == "NAVEL" | event== "SEPTIC")|>    #this removes all other health events except those that are septic or navel 
+mutate(floordate_month = floor_date(date_event,'months'))|>  #adds column of floordate_month using the date event column
+ fxn_add_event_counts()|>
+  mutate(category_dop_event = case_when(
+    age_event<7 ~ "1 week",
+    age_event>=7 & age_event<=14 ~ "2 weeks",
+    age_event>=15 & age_event <=30 ~ "1 mo",
+    age_event>=31 & age_event <=60 ~ "2 mo",
+    age_event>61 ~ "older than 2 mo",
+    .default=  "missing"
+  ))
+  
+
+
   
   
 ```
@@ -67,6 +81,106 @@ events<-read_parquet(here::here('data/intermediate_files/events_formatted.parque
 
 5. Create a new dataframe that uses the distinct() function to count the number of unique animals (id_animal) within each event and floordate_month, and category_dop_event.  Name this dataframe `event_counts_by_month`.
 
+```{r}
+
+event_counts_by_month<-events|>
+  #distinct(id_animal, event, floordate_month, category_dop_event)|>
+  group_by(event, floordate_month, category_dop_event, remark)|>
+  summarize(count_animals= n_distinct(id_animal),
+            n=sum((n()))
+            )|>
+  ungroup()
+skimr::skim(event_counts_by_month)
+#don't need to do distinct if you also are summarizing by the n_distinct(id_animal)
+
+```
+```{r}
+event_counts_by_month |>
+  ggplot(aes(x = floordate_month,
+             y = n,
+             fill = event)) +
+  geom_point(position = "dodge", alpha=0.2) +
+  facet_wrap(category_dop_event~.)+
+  #geom_bar(stat = "identity",color="black")+
+  labs(
+    x = "Category DOP Event",
+    y = "Count of Animals",
+    fill = "Event",
+    title = "SEPTIC and NAVEL Counts by Category"
+  )
+```
+
+
+```{r}
+event_counts_by_month |>
+  ggplot(aes(x = category_dop_event,
+             y = n,
+             fill = event)) +
+  geom_col(alpha=0.8) +
+  #geom_bar(stat = "identity",color="black")+
+  labs(
+    x = "Category DOP Event",
+    y = "Count of Animals",
+    fill = "Event",
+    title = "SEPTIC and NAVEL Counts by Category"
+  )
+```
+
+
+```{r}
+event_counts_by_month |>
+  ggplot(aes(x = category_dop_event,
+             y = n,
+             fill = event)) +
+  geom_col(alpha=0.8) +
+  facet_wrap(facets = vars(remark))
+  #geom_bar(stat = "identity",color="black")+
+  labs(
+    x = "Category DOP Event",
+    y = "Count of Animals",
+    fill = "Event",
+    title = "SEPTIC and NAVEL Counts by Treatment"
+  )
+
+```
+
+```{r}
+
+event_counts_by_event<-events|>
+  #distinct(id_animal, event, floordate_month, category_dop_event)|>
+  group_by(event, category_dop_event)|>
+  summarize(count_animals= n_distinct(id_animal),
+            n=sum((n()))
+            )|>
+  ungroup()|>
+  #next mutate line tells to sort the order I wanted and not just alphabetically
+  mutate(category_dop_event=factor(category_dop_event,levels = c( "1 week" ,"2 weeks", 
+                                                                  "1 mo",
+                                                                  "2 mo", 
+                                                                  "older than 2 mo",
+                                                                  "missing")))
+
+event_counts_by_event |>
+  ggplot(aes(x = event,
+             y = n,
+             fill = category_dop_event)) +
+  geom_col(position = "dodge") +
+  labs(
+    x = "Event",
+    y = "Count of Animals",
+    fill = "Age",
+    title = "SEPTIC and NAVEL Counts by Age"
+  )
+
+
+
+```
+
+
+
+
+```{r}
+```
 
 
 ## Check selected columns
