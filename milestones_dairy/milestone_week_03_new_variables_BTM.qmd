@@ -57,7 +57,9 @@ events<-read_parquet(here::here('data/intermediate_files/events_formatted.parque
     category_dop_event = case_when(
       dop_event>0 & dop_event<=100        ~ "Early Lactation",
       dop_event>100 & dop_event<=200      ~ "Mid Lactation",
-      dop_event>200                       ~ "Late Lactation"
+      dop_event>200                       ~ "Late Lactation",
+      dop_event==0 & lact_number>0        ~ "Dry Period",
+      .default                            ="CHECK DATA"
       ),
     #) |>
     #  mutate(
@@ -66,7 +68,7 @@ events<-read_parquet(here::here('data/intermediate_files/events_formatted.parque
   #events$floordate_month_test<-floor_date(events$date_event,"months")
 #I can mutate above variables separately or in one move using pipes. If I want to do the dangerous way without pipes and MODIFY the original data set I can use the $ line of code at 66.
 event_counts_by_month<-events |>
-  distinct(id_animal,event,floordate_month,category_dop_event)
+  distinct(id_animal,event,floordate_month, floordate_year, category_dop_event)
 
  #?floor_date
 #This can be used for a TON of date and time rounding, etc. More to come in other milestones
@@ -75,9 +77,23 @@ event_counts_by_month<-events |>
 
 ```{r}
 ggplot(event_counts_by_month) +
-  geom_bar(mapping=aes(x=floordate_month))
+  geom_bar(mapping=aes(x=floordate_month)) +
+  facet_wrap(facets=vars(category_dop_event)) 
+
+#Tried playing with this data set and ggplot and entirely underwhelmed and struggling to conceptualize why I can't make (for example) several graphs comaparing the relative proportions of cases that happen early vs mid vs late lactation with facet by year by month on the X 
+#ggplot(event_counts_by_month) +
+#  geom_col(mapping=aes(x=floordate_month, y=category_dop_event), position="fill") +
+#  facet_wrap(facets=vars(floordate_year)) 
 
 
+
+#ggplot(event_counts_by_month,x=floordate_month,y=) + 
+#  geom_density_2d_filled()
+
+##ggplot(
+ # data=event_counts_by_month,
+ # mapping=aes(x=floordate_month)) +
+ #   geom point()
 
 ```
 
@@ -130,6 +146,8 @@ Create 2 new variables for your events named: `Disease` and `Treatment`. Use cas
 Run the chunk below to see the example graphics. . . . your graphics can be prettier!
 
 ```{r}
+
+#| label: Mutating and create case_when disease and treatment variables
 #Focusing on MAST data but trying to be inclusive for both MAST and LAME data so working on QQ categories to start
 
 events_QQ_Disease_Treatment<-events |>
@@ -151,35 +169,75 @@ events_QQ_Disease_Treatment<-events |>
       str_detect(locate_lesion,"RR") & quarter_count==1                        ~ "Right Rear Only",
       str_detect(locate_lesion,"LF") & quarter_count==1                        ~ "Left Front Only",
       str_detect(locate_lesion,"RF") & quarter_count==1                        ~ "Right Front Only",
-      str_detect(locate_lesion,"LR") & quarter_count>1                        ~ "Left Rear Included",
-      str_detect(locate_lesion,"RR") & quarter_count>1                        ~ "Right Rear Included",
-      str_detect(locate_lesion,"LF") & quarter_count>1                        ~ "Left Front Included",
-      str_detect(locate_lesion,"RF") & quarter_count>1                        ~ "Right Front Included",
-      .default                      = "Check Data"
+#      str_detect(locate_lesion,"LR") & quarter_count>1                        ~ "Left Rear Included",
+#      str_detect(locate_lesion,"RR") & quarter_count>1                        ~ "Right Rear Included",
+#      str_detect(locate_lesion,"LF") & quarter_count>1                        ~ "Left Front Included",
+#      str_detect(locate_lesion,"RF") & quarter_count>1                        ~ "Right Front Included",
+      quarter_count==0                                                         ~ "No Quarter Recorded",
+      .default  = "Check Data"
       ),
+    
+ #I cannot figure out how to code to keep Left Rear Included from getting all the counts for multiple quarters which include LR...Ask Nora! I could literally write each combination out but that would take forever   
+    Disease_QQ_LR_Included = case_when( 
+      str_detect(locate_lesion,"LR") & quarter_count>1                        ~ "Left Rear Included",
+      quarter_count==0                                                         ~ "No Quarter Recorded",
+      .default  = "Check Data"
+      ),
+    Disease_QQ_RR_Included = case_when( 
+      str_detect(locate_lesion,"RR") & quarter_count>1                        ~ "Right Rear Included",
+      quarter_count==0                                                         ~ "No Quarter Recorded",
+      .default  = "Check Data"
+      ),
+    Disease_QQ_LF_Included = case_when( 
+      str_detect(locate_lesion,"LF") & quarter_count>1                        ~ "Left Front Included",
+      quarter_count==0                                                         ~ "No Quarter Recorded",
+      .default  = "Check Data"
+      ),
+    Disease_QQ_RF_Included = case_when( 
+      str_detect(locate_lesion,"RF") & quarter_count>1                        ~ "Right Front Included",
+      quarter_count==0                                                         ~ "No Quarter Recorded",
+      .default  = "Check Data"
+      ),    
     Disease_QQ_Category1Total = case_when(
-      Disease_QQ_Category1 %in% c("Left Rear Only","Left Rear Included")   ~"Left Rear Total",
-      Disease_QQ_Category1 %in% c("Right Rear Only","Right Rear Included")   ~"Right Rear Total",
-      Disease_QQ_Category1 %in% c("Left Front Only","Left Front Included")   ~"Left Front Total",
-      Disease_QQ_Category1 %in% c("Right Front Only","Right Front Included")   ~"Right Front Total",
-      .default                      = "Check Data"
+      Disease_QQ_Category1=="Left Rear Only"| Disease_QQ_LR_Included=="Left Rear Included"   ~"Left Rear Total",
+      Disease_QQ_Category1=="Right Rear Only"| Disease_QQ_RR_Included=="Right Rear Included"   ~"Right Rear Total",
+      Disease_QQ_Category1=="Left Front Only"| Disease_QQ_LF_Included=="Left Front Included"   ~"Left Front Total",
+      Disease_QQ_Category1=="Right Front Only"| Disease_QQ_RF_Included=="Right Front Included"   ~"Right Front Total",
+      quarter_count==0                                                         ~ "No Quarter Recorded",
+      .default = "Check Data"
     ),
+
+
+#Old code that was dumping everything with multiple affected quarters to LR Included and thus Left Rear Total
+#    Disease_QQ_Category1Total = case_when(
+#      Disease_QQ_Category1 %in% c("Left Rear Only","Left Rear Included")   ~"Left Rear Total",
+#      Disease_QQ_Category1 %in% c("Right Rear Only","Right Rear Included")   ~"Right Rear Total",
+#      Disease_QQ_Category1 %in% c("Left Front Only","Left Front Included")   ~"Left Front Total",
+#      Disease_QQ_Category1 %in% c("Right Front Only","Right Front Included")   ~"Right Front Total",
+#      quarter_count==0                                                         ~ "Z No Quarter Recorded",
+#      .default = "Check Data"
+#    ),
     Disease_QQ_Category2 =case_when(
       str_detect(locate_lesion,"LF") & str_detect(locate_lesion,"RF") & quarter_count==2          ~ "Both Front",
       str_detect(locate_lesion,"LR") & str_detect(locate_lesion,"RR") & quarter_count==2          ~ "Both Rear",
       str_detect(locate_lesion,"LF") & str_detect(locate_lesion,"LR") & quarter_count==2          ~ "Both Left",
       str_detect(locate_lesion,"RF") & str_detect(locate_lesion,"RR") & quarter_count==2          ~ "Both Right",
-      .default="Check Data"
+      quarter_count==0                                                         ~ "No Quarter Recorded",
+      .default="All other cases"
     ),
     Treatment = case_when(
       remark_letters1=="NOT"                         ~ "No Treatment",
       remark_letters1=="TOD"                         ~ "Today IMM",
       remark_letters1=="SPC"                         ~ "SpectraMast LC IMM",
       remark_letters1=="AMX"                         ~ "AmoxiMast IMM",
-      locate_lesion=="LR"                         ~ "Killed Quarter",
-      .default="Check Data"
+      remark_remaining_after_numbers1=="No Treatment" & str_detect(remark,"KILL")   ~ "Killed Quarter",
+      str_detect(remark,"AHV")                       ~ "AHV Pills",
+      str_detect(remark,"IV_DRENCH")                 ~ "Supportive Fluid Therapy",
+      .default="Other Treatment"
     )
     )
+
+
 
     #Disease = case_when(
     #  locate_lesion=="LR"                         ~ "Left Rear Only",
@@ -208,7 +266,37 @@ knitr::include_graphics(('milestones_dairy/images/milestone4_disease_by_phase.jp
 ```
 
 
+#| Start making graphs that mean something!
 
+```{r}
+events_QQ_Disease_Treatment |>
+  filter(event=="MAST") |>
+  mutate(year_event=year(date_event)) |> #removes month and only counts by the year
+  count(year_event,Disease_QQ_Category1Total,Treatment)  |> #counts of treatment by disease (QQ TOTAL) per year
+  ggplot(aes(x=year_event,y=n, fill=Treatment)) +
+  geom_col() +
+  facet_wrap(vars(Disease_QQ_Category1Total)) 
+
+
+
+
+events_QQ_Disease_Treatment |>
+  filter(event=="MAST") |>
+  mutate(
+    month_event=month(date_event, label = TRUE, abbr = FALSE), 
+    month_event=factor(month_event,levels=month.name) 
+  ) |> #removes year and only counts by the month (Jan-Dec)
+  group_by(month_event,floordate_year, category_dop_event,Disease_QQ_Category1Total) |>
+    summarize(n=n())|>
+  #count(floordate_year,floordate_month,category_dop_event,Disease_QQ_Category1Total,Treatment)  |> #counts of treatment by disease (QQ TOTAL) per year
+  ggplot(aes(x=month_event,y=n, fill=Disease_QQ_Category1Total)) +
+  geom_col() +
+  facet_grid(rows=vars(floordate_year),cols=vars(category_dop_event)) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+
+
+```
 
 Then use graphs, tables, or a combination to describe your selected events.  Has there has been a change in the treatments used over time?  Does dop (day of phase i.e. dim or age) matter for your selected events?
 
