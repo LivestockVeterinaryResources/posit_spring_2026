@@ -39,7 +39,7 @@ The options for calendar periods are: **`r sort(unique(denominator_base$calendar
 
 The second step is to choose your lactation grouping. 
 To simplify this first example will select a grouping without day of phase. 
-(see the DOP section of How to Use denominaotrs report for day of phase examples)
+(see the DOP section of How to Use denominators report for day of phase examples)
 
 The options for groups are: **`r sort(unique(denominator_base$deno_type))`**
 
@@ -60,7 +60,7 @@ head(denominator)
 ```
 ### Step 2 - Summarize your numerator correctly
 
-Follow the comments documenting the steps for nummerator summary. 
+Follow the comments documenting the steps for numerator summary. 
 
 Make sure you understand them.  This is a functional example of what you will be asked to do in step 5 for an event or disease of your choice.
 
@@ -134,9 +134,79 @@ Repeat the steps above for a disease of your choice. Then plot the trend of that
 Be careful with your joins. Do not unintentionally create or delete data.
 
 ```{r}
+# =========================================================================
+# STEP 5: DISEASE INCIDENCE ANALYSIS (RETAINED PLACENTA - RP)
+# =========================================================================
+
+# -------------------------------------------------------------------------
+# PART 1: Summarize the Numerator (RP Events)
+# -------------------------------------------------------------------------
+rp_event_summary <- read_parquet(here::here('data/intermediate_files/events_formatted.parquet')) %>%
+  
+  # Filter for the specific disease code 'RP' (Retained Placenta)
+  filter(event %in% 'RP') %>% 
+  
+  # REMOVE DUPLICATES: This prevents the 'must be size 0 or 1, not 2' error in the professor's function
+  distinct(id_animal, date_event, .keep_all = TRUE) %>%
+  
+  # Execute the custom function to calculate historical event counts per cow
+  fxn_add_event_counts() %>%  
+  
+  # Standardize labels and group higher occurrence frequencies together
+  mutate(event_count_lact = case_when(
+    event_count_lact < 4    ~ paste0('RP ', event_count_lact), 
+    is.na(event_count_lact) ~ 'Unknown',
+    TRUE                    ~ 'RP 4+'
+  )) %>%
+  
+  # Roll back the exact event dates to the first day of their respective month
+  mutate(date_time_period_start = floor_date(date_event, unit = 'month')) %>% 
+  
+  # Align column naming conventions directly with the denominator dataset
+  mutate(`Lactation Group` = lact_group, 
+         location_lact_list = location_event) %>% 
+  
+  # Group the rows by structural dimensions before evaluating aggregates
+  group_by(location_lact_list, `Lactation Group`, 
+           date_time_period_start, event_count_lact) %>% 
+  
+  # Count unique animal identification keys inside each isolated group
+  summarize(ct_rp_events = n_distinct(id_animal)) %>%
+  
+  # Strip grouping attributes so the dataframe functions normally downstream
+  ungroup()
 
 
+# -------------------------------------------------------------------------
+# PART 2: Combine Denominator and Numerator (Left Join)
+# -------------------------------------------------------------------------
+final_rp_data <- denominator %>%
+  
+  # Merge data arrays horizontally using matching relational key columns
+  left_join(rp_event_summary) %>%
+  
+  # Replace structural NA voids with 0 for groups with no recorded events
+  mutate(ct_rp_events = replace_na(ct_rp_events, 0)) %>%
+  
+  # Calculate the population incidence scale (infected count over active population)
+  mutate(rp_rate = ct_rp_events / ct_animal_time_periods)
 
+
+# -------------------------------------------------------------------------
+# PART 3: Generate Trend Visualization (ggplot2)
+# -------------------------------------------------------------------------
+ggplot(final_rp_data %>% filter(!(is.na(event_count_lact)))) +
+  
+  # Render absolute mathematical coordinate points onto the visual canvas
+  geom_point(aes(x = date_time_period_start, y = rp_rate, color = `Lactation Group`)) +
+  
+  # Overlay a mathematical smoothing path to illustrate directional trends
+  geom_smooth(aes(x = date_time_period_start, y = rp_rate, 
+                  color = `Lactation Group`, group = `Lactation Group`, 
+                  fill = `Lactation Group`), alpha = .2 , span = .6) +
+  
+  # Segment the graphics display matrix by event categories and farm boundaries
+  facet_grid(event_count_lact ~ location_lact_list, scales = 'free')
 ```
 
 

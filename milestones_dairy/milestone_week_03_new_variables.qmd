@@ -75,8 +75,46 @@ Run the chunk below to see an example of the dataframe you are trying to create.
 
 ```{r}
 
-example_df
+library(lubridate) # Ensures that the floor_date function will work properly
 
+events <- read_parquet(here::here('data/intermediate_files/events_formatted.parquet')) %>%
+  select(location_event, 
+         id_animal, 
+         id_animal_lact,
+         id, date_birth,
+         lact_number, lact_group,
+         event_type, date_event,
+         dim_event, dop_event, starts_with('age'), 
+         event, remark, protocols, locate_lesion,
+         contains('event'), 
+         contains('remark'), 
+         contains('protocols') 
+  ) %>%
+  filter(event_type %in% 'health') %>%
+  
+  # ITEM 3: Add event counts BEFORE filtering. 
+  # This prevents the function from breaking, ensuring it calculates 
+  # the counts based on the complete historical data of each animal.
+  fxn_add_event_counts() %>%
+  
+  # ITEM 1: Filter for your specific health events of interest.
+  # (You can change 'MASTITIS' and 'FEVER' to any events you prefer, like 'NAVEL' or 'SEPTIC')
+  filter(event %in% c('MASTITIS', 'FEVER')) %>%
+  
+  # ITEM 2: Create the floordate_month variable using mutate
+  mutate(floordate_month = floor_date(date_event, 'months')) %>%
+  
+  # ITEM 4: Create categories based on dop_event (Days on Phase) using case_when
+  mutate(category_dop_event = case_when(
+    dop_event <= 30  ~ "0-30 days",
+    dop_event <= 90  ~ "31-90 days",
+    dop_event <= 200 ~ "91-200 days",
+    TRUE             ~ ">200 days"
+  ))
+
+# ITEM 5: Create a new dataframe counting unique animals using distinct()
+event_counts_by_month <- events %>%
+  distinct(id_animal, event, floordate_month, category_dop_event)
 ```
 
 ### Step 2 - Disease and Treatments
@@ -108,7 +146,90 @@ Note: your graphics should be much prettier than the examples!! ;)
 
 
 ```{r}
-#graph your event counts over time here.
+library(lubridate) # Ensures that the floor_date function will work properly
+library(stringr)   # Required for text pattern matching using str_detect
+library(ggplot2)   # Used to build high-quality visual graphics
+library(dplyr)     # Core package for data manipulation and pipes
+library(tidyr)     # Used for reshaping data structures (e.g., pivot_wider)
+
+# -------------------------------------------------------------------------
+# DATA PREPARATION (Milestone Tasks & Step 2)
+# -------------------------------------------------------------------------
+events_cleaned <- read_parquet(here::here('data/intermediate_files/events_formatted.parquet')) %>%
+  select(location_event, 
+         id_animal, 
+         id_animal_lact,
+         id, date_birth,
+         lact_number, lact_group,
+         event_type, date_event,
+         dim_event, dop_event, starts_with('age'), 
+         event, remark, protocols, locate_lesion,
+         contains('event'), 
+         contains('remark'), 
+         contains('protocols') 
+  ) %>%
+  filter(event_type %in% 'health') %>%
+  
+  # TASK 3: Add event counts before filtering
+  fxn_add_event_counts() %>%
+  
+  # REMOVED strict filter temporary to inspect what data is actually there
+  # filter(str_detect(toupper(event), "MASTITIS|FEVER")) %>% 
+  
+  # TASK 2: Create the floordate_month variable
+  mutate(floordate_month = floor_date(date_event, 'months')) %>%
+  
+  # TASK 4: Categorize the day of phase (dop_event) into logical risk intervals
+  mutate(category_dop_event = case_when(
+    dop_event <= 30  ~ "0-30 days",
+    dop_event <= 90  ~ "31-90 days",
+    dop_event <= 200 ~ "91-200 days",
+    TRUE             ~ ">200 days"
+  )) %>%
+  
+  # STEP 2: Flexible standardization (Captures Mastitis/Fever, or defaults to 'Other')
+  mutate(
+    Disease = case_when(
+      str_detect(toupper(event), 'MASTITIS|MAST') ~ 'Mastitis',
+      str_detect(toupper(event), 'FEVER|FEVR|FEBRE') ~ 'Fever',
+      TRUE                                           ~ 'Other Health Events'
+    ),
+    Treatment = case_when(
+      str_detect(tolower(protocols), 'penicillin|ampicillin|antibiotic') ~ 'Antibiotic',
+      str_detect(tolower(protocols), 'banamine|flunixin|anti')           ~ 'Anti-inflammatory',
+      str_detect(tolower(remark), 'discard|dump')                        ~ 'Discard Milk Only',
+      TRUE                                                               ~ 'No Protocol Recorded'
+    )
+  )
+
+# TASK 5 & STEP 2: Create summary without dropping rows
+event_summary <- events_cleaned %>%
+  group_by(floordate_month, category_dop_event, Disease, Treatment) %>%
+  summarise(Count = n_distinct(id_animal), .groups = 'drop')
+
+# -------------------------------------------------------------------------
+# VISUALIZATION & ANALYSIS
+# -------------------------------------------------------------------------
+
+# GRAPH 1: Analyzing treatment distribution and protocol shifts over time
+ggplot(event_summary, aes(x = floordate_month, y = Count, fill = Treatment)) +
+  geom_col(position = "stack") + 
+  facet_wrap(~Disease, scales = "free_y") + 
+  labs(
+    title = "Evolution of Treatment Protocols Over Time",
+    subtitle = "Raw counts of unique animal health events grouped by month",
+    x = "Timeline (Months)",
+    y = "Number of Cases (Counts)",
+    fill = "Treatment Category"
+  ) +
+  theme_minimal(base_size = 12) +
+  theme(
+    plot.title = element_text(face = "bold", size = 14),
+    legend.position = "bottom",
+    axis.text.x = element_text(angle = 45, hjust = 1)
+  ) +
+  scale_fill_brewer(palette = "Set2")
+
 
 ```
 
