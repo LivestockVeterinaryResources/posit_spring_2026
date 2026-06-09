@@ -1,0 +1,216 @@
+---
+title: "Week 4 tidy and join"
+format:
+  html:
+    embed-resources: true
+    code-fold: true
+---
+
+# ignore this chunk, it is just alot of setup
+
+```{r, include = FALSE}
+
+library(tidyverse)
+source('functions/fxn_mileston4_tools.R')
+```
+
+# Week 4
+
+## FDA facilities
+
+The object `fda_facilities_solution_data` is a dataframe of the number of fda approved facilities in the world. The original data can be found at the link below.
+
+<https://www.fda.gov/economics-staff/fda-glance>
+
+Your ultimate goal is to create this graphic:
+
+```{r}
+
+fxn_plot_facilities(fda_facilities_solution_data)
+
+```
+
+-   Make the data in the chunk below tidy.
+
+-   Calculate the percent of the total for each year that is domestic or foreign.
+
+Your final data in this chunk should be named `fda_facilities`, and should look like the dataframe in your environment named `fda_facilities_solution_data`.
+# | Tidying the data | #
+```{r}
+fda_facilities<-tibble(
+  Year = c(2018, 2020, 2021, 2023, 2024),
+  Domestic = c(1403, 1608, 1858, 980, 974), 
+  Foreign = c( 385, 1156, 1103, 701, 753),
+  Total = c(1788, 2764, 2961, 1681, 1727)
+) |>
+  pivot_longer(cols = 2:3,
+  names_to = "Location",
+  values_to = "Facility Count") |>
+    mutate(pct = `Facility Count` / Total) #have to put Facility Count in backticks due to space#
+
+
+```
+
+In the chunk below:
+
+-   create a bar graph with year on the x axis, a count of fda facilities on the y axis, color the bar by location.
+
+-   use geom text to add text to your graphic showing the total number of facilities, the percent foreign and percent domestic. Use the graphic in chunk 2 as an example of what you are trying to create.
+
+```{r}
+fda_facilities_plot1 <- fda_facilities |>
+  ggplot(mapping = aes(x = factor(Year))) +                # Used factor(Year) to treat as categories so all years would be listed
+  geom_col(data = distinct(fda_facilities, Year, Total),   # Needed this to not count Total twice
+  mapping = aes(y = Total),
+  fill = "#36454F",
+  width = 0.9) +                                           # Made the Total bar wider than the Location bars 
+  geom_col(mapping = aes(y = `Facility Count`, fill = Location),
+  position = "dodge",
+  width = 0.7) +                                           # Made the Location bars smaller
+    scale_fill_manual(                                     # scale_fill_brewer(name = "Location", palette = "Blues")
+      values = c(
+    Domestic = "#45a29e",
+    Foreign  = "#ffa552"
+  )
+    ) +
+  labs(
+    title = "FDA Facilities - Animal Drugs",
+    subtitle = "Numbers on grey total bars are facility counts (% domestic)",
+    x = "Year",
+    y = "Total",
+    caption = "Data from https://www.fda.gov/economics-staff/fda-glance"
+  ) +
+  geom_text(
+    data = filter(fda_facilities, Location == "Domestic"), # Filtering the data so that I only pull percent domestic and only pull Total from each year once
+    aes(
+      y = Total,
+      label = paste0(
+        Total,
+        "\n",
+        sprintf("(%d%%)", round(pct * 100))                # Used this format just to try something new. Could have also written as "\n(", round(pct * 100), "%)"
+      )),
+      color = "white",
+    vjust = 1.3
+  ) +
+    theme_minimal()
+
+  fda_facilities_plot1
+  ggsave("milestones_dairy/images/fda_facilities_plot1.png", plot = fda_facilities_plot1)
+  
+
+```
+
+
+
+## FDA Greenbook
+
+All ***listed*** animal drug products (which is not the same as ***approved*** products) can be found in the FDA "Green Book".
+
+Go to <https://www.fda.gov/industry/structured-product-labeling-resources/electronic-animal-drug-product-listing-directory>
+
+Then click on the link text at the top of the page that says `Electronic Animal Drug Product Listing Directory`. This will download an excel file (but a very very old version of excel) to your computer.
+
+Put this file in a place you can then read it into R in the chunk below. Make sure when you read it in that you force it to read in all columns as characters. It will make errors if it guesses on this dataset.
+
+Hint: you can either learn to read in very old excel files by finding a function that (readxl), or you can open the file and re-save it as a csv file and then read it in (potentially faster)
+
+Pipe your data into the function `fxn_clean_green_manufacturer()` to clean up the manufacturer names.  Group by manufacturer and count how many products are manufactured. Arrange the data by descending number of products. 
+
+Make a new dataframe named `Top_10` that is only the first 10 rows.
+
+```{r}
+fda_greenbook <- read.csv("C:/Users/peppe/Documents/Posit course/Electronic_Animal_Drug_Product_Listing_Directory/Electronic_Animal_Drug_Product_Listing_Directory.xls.csv")
+
+install.packages("skimr")
+library(skimr)
+skim(fda_greenbook)
+summary(fda_greenbook, character.method = "factor")
+
+```
+
+
+Now join this data to the `pharma_revenue` data frame that is already in your environment.  
+
+
+
+```{r}
+glimpse(fda_greenbook)
+glimpse(pharma_revenue)
+pharma_revenue |>
+  head(13)
+
+fda_greenbook |>
+  filter(
+    str_detect(
+      str_to_lower(Labeler.Name),
+      "zoetis|elanco|merck|dechra|boehringer|bimeda|mwi|vetone|norbrook|phibro|virbac"
+    )
+  ) |>
+  distinct(Labeler.Name) |>
+  arrange(Labeler.Name)
+
+fda_greenbook_1 <- fda_greenbook |>
+  mutate(
+    Manufacturer = case_when(
+      str_detect(Labeler.Name, regex("bimeda", ignore_case = TRUE)) ~ "Bimeda, Inc.",
+      str_detect(Labeler.Name, regex("boehringer", ignore_case = TRUE)) ~ "Boehringer",
+      str_detect(Labeler.Name, regex("dechra", ignore_case = TRUE)) ~ "Dechra",
+      str_detect(Labeler.Name, regex("elanco", ignore_case = TRUE)) ~ "Elanco",
+      str_detect(Labeler.Name, regex("merck|intervet", ignore_case = TRUE)) ~ "Merck",
+      str_detect(Labeler.Name, regex("mwi|vetone|vet\\s*one", ignore_case = TRUE)) ~ "MWI/VetOne",
+      str_detect(Labeler.Name, regex("norbrook", ignore_case = TRUE)) ~ "Norbrook Laboratories Limited",
+      str_detect(Labeler.Name, regex("phibro", ignore_case = TRUE)) ~ "Phibro Animal Health",
+      str_detect(Labeler.Name, regex("virbac", ignore_case = TRUE)) ~ "Virbac",
+      str_detect(Labeler.Name, regex("zoetis", ignore_case = TRUE)) ~ "Zoetis",
+      TRUE ~ NA_character_
+    )
+  )
+
+```
+
+
+Did it join as expected?
+
+Is there any correlation between number of products listed and revenue?
+
+## Extension
+
+Explore something else in this greenbook data. Can you summarize 2 different things and then join them back on a shared variable?
+
+
+# Week 5
+
+## Clean up Marketing Category
+
+Use your new skills for working with strings to clean up the `Marketing Category` column in the greenbook.
+
+```{r}
+
+```
+
+
+## Format Dates
+
+Use your date formating skills to format `Inactivation Date` and `Reactivation Date`.  
+
+```{r}
+
+```
+
+
+Is there a particular month of the year when more approvals are inactivated?
+
+```{r}
+
+```
+
+
+## Extension
+
+Explore the greenbook using these new varaibles and anything else you are interested in (such as Ingredient List?).  You may find you also wish to clean up the ingredient list if you choose to use it.
+
+```{r}
+
+```
+
+
