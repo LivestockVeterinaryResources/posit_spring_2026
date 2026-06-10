@@ -1,0 +1,241 @@
+---
+title: "Week 4 tidy and join"
+format:
+  html:
+    embed-resources: true
+    code-fold: true
+---
+
+# ignore this chunk, it is just alot of setup
+
+```{r, include = FALSE}
+
+library(tidyverse)
+source('functions/fxn_mileston4_tools.R')
+```
+
+# Week 4
+
+## FDA facilities
+
+The object `fda_facilities_solution_data` is a dataframe of the number of fda approved facilities in the world. The original data can be found at the link below.
+
+<https://www.fda.gov/economics-staff/fda-glance>
+
+Your ultimate goal is to create this graphic:
+
+```{r}
+
+fxn_plot_facilities(fda_facilities_solution_data)
+
+```
+
+-   Make the data in the chunk below tidy.
+
+-   Calculate the percent of the total for each year that is domestic or foreign.
+
+Your final data in this chunk should be named `fda_facilities`, and should look like the dataframe in your environment named `fda_facilities_solution_data`.
+
+```{r}
+fda_facilities<-tibble(
+  Year = c(2018, 2020, 2021, 2023, 2024),
+  Domestic = c(1403, 1608, 1858, 980, 974), 
+  Foreign = c( 385, 1156, 1103, 701, 753),
+  Total = c(1788, 2764, 2961, 1681, 1727))|>
+  pivot_longer(cols = c(Domestic, Foreign), names_to = "type", values_to = "Count")|>
+  mutate(percent = Count / Total)|>
+
+
+fda_facilities
+
+
+
+```
+
+In the chunk below:
+
+-   create a bar graph with year on the x axis, a count of fda facilities on the y axis, color the bar by location.
+
+-   use geom text to add text to your graphic showing the total number of facilities, the percent foreign and percent domestic. Use the graphic in chunk 2 as an example of what you are trying to create.
+
+```{r}
+fda_domestic_pct <- fda_facilities |> 
+  filter(type == "Domestic") |> 
+  select(Year, Total, percent)
+
+fda_bars_data <- fda_facilities
+
+ggplot() +
+  geom_col(
+    data = fda_domestic_pct, 
+    aes(x = factor(Year), y = Total),
+    fill = "#58595b", 
+    width = 0.85,    
+    alpha = 1        
+  ) +
+  geom_col(
+    data = fda_bars_data, 
+    aes(x = factor(Year), y = Count, fill = type),
+    position = position_dodge(width = 0.6), 
+    width = 0.5                              
+  ) +
+  geom_text(
+    data = fda_domestic_pct,
+    aes(
+      x = factor(Year), 
+      y = Total, 
+      label = paste0(Total, "\n(", scales::percent(percent, accuracy = 1), ")")
+    ),
+    vjust = 1.1,      
+    color = "white",  
+    size = 4,         
+    lineheight = 0.9  
+  ) +
+  scale_fill_manual(
+    values = c("Domestic" = "#20a473", "Foreign" = "#e86e1a"), 
+    name = "Location"                                           
+  ) +
+  labs(
+    title = "FDA Facilities - Animal Drugs",
+    subtitle = "Numbers on grey total bars are facility counts (% domestic)",
+    x = "Year",
+    y = "Total",
+    caption = "Data from: https://www.fda.gov/economics-staff/fda-glance"
+  ) +
+  theme_classic() + 
+  theme(
+    plot.title = element_text(face = "bold"), 
+    text = element_text(family = "sans"),
+    axis.line.y = element_blank(), 
+    axis.ticks.y = element_blank(),
+    plot.caption = element_text(hjust = 0)
+  )
+```
+
+
+
+## FDA Greenbook
+
+All ***listed*** animal drug products (which is not the same as ***approved*** products) can be found in the FDA "Green Book".
+
+Go to <https://www.fda.gov/industry/structured-product-labeling-resources/electronic-animal-drug-product-listing-directory>
+
+Then click on the link text at the top of the page that says `Electronic Animal Drug Product Listing Directory`. This will download an excel file (but a very very old version of excel) to your computer.
+
+Put this file in a place you can then read it into R in the chunk below. Make sure when you read it in that you force it to read in all columns as characters. It will make errors if it guesses on this dataset.
+
+Hint: you can either learn to read in very old excel files by finding a function that (readxl), or you can open the file and re-save it as a csv file and then read it in (potentially faster)
+
+Pipe your data into the function `fxn_clean_green_manufacturer()` to clean up the manufacturer names.  Group by manufacturer and count how many products are manufactured. Arrange the data by descending number of products. 
+
+Make a new dataframe named `Top_10` that is only the first 10 rows.
+
+```{r}
+library(readxl)
+
+greenbook_raw <- read_excel("greenbook.xlsx", col_types = "text")
+
+Top_10 <- greenbook_raw |> 
+  fxn_clean_green_manufacturer() |> 
+  group_by(Manufacturer) |> 
+  count(name = "Product_Count") |> 
+  arrange(desc(Product_Count)) |> 
+  slice_head(n = 10)
+
+Top_10
+```
+
+
+Now join this data to the `pharma_revenue` data frame that is already in your environment.  
+
+
+
+```{r}
+library(readxl)
+
+greenbook_raw <- read_excel("greenbook.xlsx", col_types = "text")
+
+Top_10 <- greenbook_raw |> 
+  fxn_clean_green_manufacturer() |> 
+  group_by(Manufacturer) |> 
+  count(name = "Product_Count") |> 
+  arrange(desc(Product_Count)) |> 
+  slice_head(n = 10)
+
+Top_10_with_revenue <- Top_10 |> 
+  left_join(pharma_revenue, by = "Manufacturer")
+
+Top_10_with_revenue
+```
+
+```{r}
+library(readxl)
+
+greenbook_raw <- read_excel("greenbook.xlsx", col_types = "text")
+
+greenbook_clean <- greenbook_raw |> 
+  fxn_clean_green_manufacturer()
+
+summary_types <- greenbook_clean |> 
+  group_by(Manufacturer) |> 
+  summarise(Unique_Types = n_distinct(`Product Type`))
+
+summary_categories <- greenbook_clean |> 
+  group_by(Manufacturer) |> 
+  summarise(Unique_Categories = n_distinct(`Marketing Category`))
+
+extension_final <- summary_types |> 
+  left_join(summary_categories, by = "Manufacturer") |> 
+  arrange(desc(Unique_Types)) |> 
+  slice_head(n = 10)
+
+extension_final
+
+```
+
+
+Did it join as expected?
+
+Is there any correlation between number of products listed and revenue?
+
+## Extension
+
+Explore something else in this greenbook data. Can you summarize 2 different things and then join them back on a shared variable?
+
+
+# Week 5
+
+## Clean up Marketing Category
+
+Use your new skills for working with strings to clean up the `Marketing Category` column in the greenbook.
+
+```{r}
+
+```
+
+
+## Format Dates
+
+Use your date formating skills to format `Inactivation Date` and `Reactivation Date`.  
+
+```{r}
+
+```
+
+
+Is there a particular month of the year when more approvals are inactivated?
+
+```{r}
+
+```
+
+
+## Extension
+
+Explore the greenbook using these new varaibles and anything else you are interested in (such as Ingredient List?).  You may find you also wish to clean up the ingredient list if you choose to use it.
+
+```{r}
+
+```
+
+
