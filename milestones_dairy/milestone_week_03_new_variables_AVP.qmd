@@ -201,6 +201,7 @@ events_filtered |>
     fill = "Treatment"
   )
 
+?geom_bar()
 ```
 
 ### Extension Options

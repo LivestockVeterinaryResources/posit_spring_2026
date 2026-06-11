@@ -1,0 +1,235 @@
+---
+title: "Milestone 4 - Denominators (Tidy and Join)"
+format: html
+date: "`r Sys.Date()`"
+embed-resources: true
+---
+
+```{r}
+library(tidyverse)
+library(quarto)
+library(arrow)
+library(waldo)
+
+source('functions/fxn_add_event_counts.R')
+
+solution<-read_rds(here::here('milestones_dairy/data_milestones/solutions_week_05_pivotlonger.rds'))
+
+```
+
+## Denominators
+
+Now that you can tidy data, pivot longer or wider, and then join tables to others, you are both unstoppable . . . and dangerous.
+
+In this lesson we will explore one method of using very granular denominators in your reports.
+
+We begin by reading in files for events, and denominators
+
+```{r initial denominator generation, message==FALSE}
+
+denominator_base<-read_parquet(here::here('data/intermediate_files/denominator_by_calendar_time_period.parquet'))
+events_formatted <- read_parquet(here::here('data/intermediate_files/events_formatted.parquet'))
+
+```
+
+
+The first step is to filter your denominator according to the `calendar_time_period_type` that you want. 
+
+The options for calendar periods are: **`r sort(unique(denominator_base$calendar_time_period_type))`**
+
+The second step is to choose your lactation grouping. 
+To simplify this first example will select a grouping without day of phase. 
+(see the DOP section of How to Use denominaotrs report for day of phase examples)
+
+The options for groups are: **`r sort(unique(denominator_base$deno_type))`**
+
+Your final code should look something like this:
+
+```{r, echo = TRUE}
+
+denominator<-read_parquet(here::here('data/intermediate_files/denominator_by_calendar_time_period.parquet'))%>%
+  filter(calendar_time_period_type %in% 'month')%>% #choose denominator period type
+  filter(deno_type %in% 'lact_3+')%>% #choose the type of lactation group
+  distinct()%>%
+  select(-contains('dop'), -day_of_phase_group) # day of phase columns are not needed when dop is not part of grouping
+
+```
+
+```{r}
+head(denominator)
+```
+### Step 2 - Summarize your numerator correctly
+
+Follow the comments documenting the steps for nummerator summary. 
+
+Make sure you understand them.  This is a functional example of what you will be asked to do in step 5 for an event or disease of your choice.
+
+
+```{r, echo = TRUE}
+
+mast_event_summary<-read_parquet(here::here('data/intermediate_files/events_formatted.parquet'))%>%
+  
+  #select event of interest
+  filter(event %in% 'MAST')%>% #
+  
+  #add the event counts the way you like
+  fxn_add_event_counts()%>% 
+  mutate(event_count_lact = case_when(
+    event_count_lact <4~paste0('Mast ', event_count_lact), 
+    is.na(event_count_lact) ~ 'Unknown',
+    TRUE~'Mast 4+'
+  ))%>%
+  
+  #match the dates to the denominator
+  mutate(date_time_period_start = floor_date(date_event, unit = 'month'))%>% 
+  
+  #use same  lactation grouping as denominator (0, 1, 2, 3+), 
+  #and set location to match denominator (locations will depend of farm data structure)
+  mutate(`Lactation Group` = lact_group, 
+         location_lact_list = location_event) %>% 
+  
+  #group by all variables in the denominator, plus any extras that you want (like event count), and summarize
+  group_by(location_lact_list, `Lactation Group`, 
+            date_time_period_start, event_count_lact)%>% 
+  summarize(ct_mast_events = n_distinct(id_animal))%>%
+  ungroup()
+  
+
+```
+
+### Step 3 - Join denominator to numerator
+
+Be careful with these joins.  How do you know it joined correctly?
+Add some code to this chunk to demonstrate that it performed the way you expected.
+
+```{r, echo = TRUE}
+final_data<-denominator%>%
+  left_join(mast_event_summary)%>%
+  mutate(ct_mast_events = replace_na(ct_mast_events, 0))%>%
+  mutate(mast_rate = ct_mast_events/ct_animal_time_periods)
+
+head(final_data)
+```
+
+
+### Step 4 - Look at results
+
+```{r, echo = TRUE}
+
+ggplot(final_data%>%filter(!(is.na(event_count_lact))))+
+  geom_point(aes(x = date_time_period_start, y= mast_rate, color = `Lactation Group`))+
+    geom_smooth(aes(x = date_time_period_start, y= mast_rate, 
+                    color = `Lactation Group`, group =  `Lactation Group`, 
+                    fill = `Lactation Group`),alpha = .2 , span = .6)+
+
+  facet_grid(event_count_lact~location_lact_list, scales = 'free')
+
+
+
+```
+## Step 5 - your turn
+
+Repeat the steps above for a disease of your choice. Then plot the trend of that disease incidence over time.
+
+Be careful with your joins. Do not unintentionally create or delete data.
+
+```{r}
+#Great, I want to look at aborts in pregnant/dry cows by month
+#I'm assuming the RC column in events_formatted is DC305 Repro Code, so I'll use cows with RC==5,6 as a denominator
+#are there multiple locations in this dataset?
+events_formatted|>
+  distinct(location_event)|>
+  arrange(location_event)
+#lol nope. Just Example herd 210 so we can ignore location.
+
+#So pregnant & dry cows in the denominator separated out by month
+preg_denominator <- events_formatted |>
+  filter(RC %in% c("5", "6")) |> #find only cows with RC==5,6
+  mutate(
+    date_time_period_start = floor_date(date_event, unit = "month"), #reframes dates as the whole month (so 1/12/25 = january 2025)
+  ) |>
+  group_by(date_time_period_start) |> #then group by month
+  summarize(
+    ct_preg_animals = n_distinct(id_animal), #count the pregnant animals (by distinct ID) in each month
+    .groups = "drop"
+  )
+
+#my numerator is the abortions by month
+abort_event_summary<- events_formatted|>
+  filter(event=="ABORT")|>
+  mutate(
+    date_time_period_start = floor_date(date_event, unit="month")
+  )|>
+  group_by(date_time_period_start)|>
+  summarize(ct_abort_events = n_distinct(id_animal), #same as above, just looking at abort events rather than rc=5,6
+  .groups="drop")
+
+#now to join them
+final_abort_over_preg <-preg_denominator |> #start with denominator
+  left_join(abort_event_summary, by = "date_time_period_start")|> #join datasets by month
+  mutate(ct_abort_events = replace_na(ct_abort_events, 0), #turn any missing abort events to "0" so we can math it
+  abort_rate_preg = ct_abort_events/ct_preg_animals) #puts the numerator over denominator to calculate abortion rate
+
+#now let's graph by month!
+ggplot(final_abort_over_preg) +
+  geom_point(aes(x=date_time_period_start, y=abort_rate_preg))+
+  geom_smooth(aes(x=date_time_period_start, y=abort_rate_preg), span=0.6, alpha=0.2)+
+  scale_y_continuous(labels = scales::percent)+ #fixes y axis to show percentages instead of decimals as calculated in previous step
+  labs(
+    title="Abortion rate by month",
+    x="Month",
+    y="Abort rate")
+
+#this is fine, but I want to break out the months more - ChatGPT helped me with this.
+ggplot(final_abort_over_preg) +
+  geom_point(aes(x = date_time_period_start,y = abort_rate_preg))+
+  geom_line(aes(x = date_time_period_start, y = abort_rate_preg)) +
+  scale_x_date(date_breaks = "1 month",date_labels = "%b %Y") + #this is how I'll break out the months with month (abbreviated), year
+  scale_y_continuous(labels = scales::percent) +
+  labs(
+    title = "Abortion rate by month",
+    x = "Month",
+    y = "Abort rate"
+  ) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) #adjusts labels on x axis to a 45 degree angle so they're not overlapping each other & align right so label aligns with tick mark better
+
+#okay that looks legit crazy... let's look at just the last year
+final_abort_over_preg |>
+  filter(date_time_period_start >= max(date_time_period_start, na.rm = TRUE) - years(1)) |> #just hte last year from teh most recent date in teh dataset
+  ggplot() +
+  geom_col(aes(x = date_time_period_start,y = abort_rate_preg)) +
+  geom_smooth(
+    aes(x = date_time_period_start, y = abort_rate_preg),span = 0.6,alpha = 0.2) +
+  scale_x_date(date_breaks = "1 month",date_labels = "%b %Y") +
+  scale_y_continuous(labels = scales::percent) +
+  labs(
+    title = "Abortion rate by month: Last year",
+    x = "Month",
+    y = "Abort rate"
+  ) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+#much more readable. I like the columns in this context. something happened in march!
+```
+
+
+
+
+
+
+## Part 2 - Extension
+
+Think about your disease or event of interest. Standard denominators like the one above are often not good enough.
+
+Use your new data wrangling skills to create the perfect denominator for your question.
+
+
+NOTE: Denominators can be challenging. If you get stuck:
+
+-   First articulate what you want to do, step by step, in English
+
+-   Then add a blank code chunk for each step
+
+-   Begin filling in code
+
+-   Ask the group for help if you get completely stuck.
