@@ -162,7 +162,7 @@ Lame_event_summary<-read_parquet(here::here('data/intermediate_files/events_form
   mutate(event_count_lact = case_when(
     event_count_lact <4~paste0('LAME ', event_count_lact), 
     is.na(event_count_lact) ~ 'Unknown',
-    TRUE~'LAME'
+    TRUE~'LAME 4+'
   ))%>%
   
   #match the dates to the denominator
