@@ -40,7 +40,13 @@ In this milestone, you'll write some of the code that was written for you in mil
 #| 
 events<-read_parquet(here::here('data/intermediate_files/events_formatted.parquet'))%>%
   filter(event_type %in% 'health')
+events
+events$event
 
+events_calf <- events |> select(id_animal, event, age_event, date_event) |> filter(event %in% c("PNEU","SCOURS")) |> mutate(floordate_month = floor_date(date_event, "month"))
+
+early_calf_disease <- events_calf |> select(id_animal, event, date_event) 
+early_calf_disease
 
 
 ```
