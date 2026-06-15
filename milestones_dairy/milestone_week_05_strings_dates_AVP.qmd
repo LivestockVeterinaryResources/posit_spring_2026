@@ -1,0 +1,192 @@
+---
+title: "Milestone 5 - Dates and Strings"
+format: html
+date: "`r Sys.Date()`"
+embed-resources: true
+---
+
+```{r}
+library(tidyverse)
+library(quarto)
+library(arrow)
+library(waldo)
+
+solution<-read_parquet('data/intermediate_files/events_formatted.parquet')
+
+# read in files-----------------
+
+list_files <- list.files(here::here("data/event_files")) # folder name where event files are located
+
+events_original <- NULL
+
+# i=1
+for (i in seq_along(list_files)) {
+  df <- read_csv(
+    here::here(
+      "data/event_files",
+      list_files[i]
+    ),
+    # reads in all data as character string
+    col_types = cols(.default = "c")
+  )
+  
+   events_original <- bind_rows(events_original, df)
+}
+
+```
+
+## Dates
+
+The original dairy comp data is read into your environment and named "events_original".
+For consistency all columns are read in as characters.
+
+Use your new skills formating dates to create a new column named date_event that is a real date from the original column named Date.
+
+Then create new variables that provide floor dates by month, season, and year. Name these floordate_month, floordate_year, floordate_season.
+
+```{r initial denominator generation, message==FALSE}
+events_formatted <- events_original |>
+  mutate(
+    date_event = mdy(Date),
+    floordate_month = floor_date(date_event, unit="month"),
+    floordate_year = floor_date(date_event, unit="year"),
+    floordate_season = floor_date(date_event, unit="season")
+  )
+
+events_formatted |>
+  select(Date, date_event, floordate_month, floordate_year, floordate_season) |>
+  glimpse()
+```
+
+Do your new dates match the dates in the solution?
+
+
+# Strings
+
+Find all the columns in the solution that contain the word "remark".  
+
+These are all based on the original Remark column in dairy comp. 
+
+Can you recreate them?  
+
+Hint: don't spend too much time trying to get exactly the same values. 
+Just spend time thinking about how you could use them to clean up remarks in a way that would help you answer a question.
+
+
+```{r, echo = TRUE}
+names(solution)|>
+  str_subset(regex("remark", ignore_case = TRUE))
+
+```
+
+# Extension - Your Turn
+
+Start with events_original.  
+
+Use your wrangling skils to fix date formats, and simplify free text to answer a question on this dairy.
+
+You can choose any question you want. 
+
+Here are some examples:
+
+-  Which drug is most commonly used for mastitis treatment and has this changed over time?
+-  What percent of breedings use sexed semen?  (this requires a large wrangle with an external key)
+-  What specific lameness diagnosis are there and how frequently do they occur? 
+
+```{r, echo = TRUE}
+#Clean event dates & remarks
+events_clean <- events_original |>
+  mutate(
+    date_event = mdy(Date),
+    floordate_month = floor_date(date_event, unit="month"),
+    floordate_year = floor_date(date_event, unit="year"),
+    floordate_season = floor_date(date_event, unit="season"),
+event_clean = Event |>
+  str_to_upper()|>
+  str_squish(),
+protocols_clean = Protocols|>
+  str_to_upper()|>
+  str_squish()
+  )
+
+#pull out mastitis events
+mastitis_events <-events_clean|>
+  filter(str_detect(event_clean, "MAST|MASTITIS"))
+
+#see list of potential mastitis treatments (actually under Protocols, Remarks has teat/quarter info)
+mastitis_events |>
+  count(protocols_clean, sort = TRUE)
+
+#clean up protocols -  a couple random ones that I don't know what they are, so they're ambiguously renamed
+mastitis_treatments <- mastitis_events |>
+  mutate(
+    mastitis_drug = case_when(
+      is.na(protocols_clean) | protocols_clean == "" | protocols_clean == "NA" ~ "No protocol",
+      str_detect(protocols_clean, "AHV PILL") ~ "AHV Pill",
+      str_detect(protocols_clean, "CMT NEGATIVE") ~ "CMT Negative",
+      str_detect(protocols_clean, "NO TREATMENT") ~ "No Treatment",
+      str_detect(protocols_clean, "SPECTRA 3DAY") ~ "Spectramast LC x 3 days",
+      str_detect(protocols_clean, "SPECTRA-5DY") ~ "Spectramast LC x 5 days",
+      str_detect(protocols_clean, "SYSTEMIC MASTIT") ~ "Systemic antibiotics",
+      str_detect(protocols_clean, "TR MASTITIS 1") ~ "Mastitis Treatment 1",
+      str_detect(protocols_clean, "TODAY 3 DAY") ~ "Today x 3 days",
+      str_detect(protocols_clean, "TODAY 5 DAY") ~ "Today x 5 days",
+      str_detect(protocols_clean, "AMX3") ~ "Amoxi-Mast x 3 days",
+      TRUE ~ "Other"
+    )
+  )
+
+#this will show me all my mastitis treatments & count them
+mastitis_treatments|>
+  count(mastitis_drug, sort=TRUE)
+
+#This just ensures I've captured everything in my prescribed categories - they're all in tehre! Nothing in teh Other category
+mastitis_treatments |>
+  filter(mastitis_drug == "Other") |>
+  count(protocols_clean, sort = TRUE)
+
+#let's plot it - I like a bar graph, but not stacked (position="dodge")
+mastitis_treatments|>
+  count(floordate_year, mastitis_drug)|>
+  ggplot(aes(x=floordate_year, y=n, fill=mastitis_drug))+
+  geom_col(position="dodge")+
+  labs(
+    title="Mastitis treatment protocols over time",
+    x="Year",
+    y="Number of mastitis events",
+    fill="Treatment protocol"
+  )
+
+#let's plot it by facets - harder to interpret across treatments as separate graphs
+mastitis_treatments|>
+  count(floordate_year, mastitis_drug)|>
+  ggplot(aes(x=floordate_year, y=n))+
+  geom_col()+
+  facet_wrap(vars(mastitis_drug),scales="free_y")+
+  labs(
+    title="Mastitis treatment protocols over time",
+    x="Year",
+    y="Number of mastitis events"
+  )
+
+#let's take into account how the dairy changed by switching to proportions
+mastitis_treatments |>
+  count(floordate_year, mastitis_drug) |> #compare year & drug
+  group_by(floordate_year) |> #show points at each year
+  mutate(
+    total_mastitis_events = sum(n), 
+    prop = n / total_mastitis_events #proportion
+  ) |>
+  ungroup() |>
+  ggplot(aes(x = floordate_year, y = prop, color = mastitis_drug)) + #each drug gets its own color
+  geom_point() +
+  geom_line() +
+  scale_y_continuous(labels = scales::percent) +
+  labs(
+    title = "Proportion of mastitis treatment protocols over time",
+    x = "Year",
+    y = "Percent of mastitis events",
+    color = "Treatment protocol"
+  )
+
+```
