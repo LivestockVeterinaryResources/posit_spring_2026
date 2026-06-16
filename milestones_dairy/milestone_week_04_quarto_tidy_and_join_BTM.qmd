@@ -135,6 +135,61 @@ Be careful with your joins. Do not unintentionally create or delete data.
 
 ```{r}
 
+#Pick Calendar Time Period Type and Lactation Group for denominator----
+
+denominator<-read_parquet(here::here('data/intermediate_files/denominator_by_calendar_time_period.parquet'))%>%
+  filter(calendar_time_period_type %in% 'month')%>% #choose denominator period type
+  filter(deno_type %in% 'lact_3+')%>% #choose the type of lactation group
+  distinct()%>%
+  select(-contains('dop'), -day_of_phase_group) # day of phase columns are not needed when dop is not part of grouping
+
+#check data
+head(denominator)
+
+mast_event_summary<-read_parquet(here::here('data/intermediate_files/events_formatted.parquet'))%>%
+  
+  #select event of interest
+  filter(event %in% 'MAST')%>% #
+  
+  #add the event counts the way you like
+  fxn_add_event_counts()%>% 
+  mutate(event_count_lact = case_when(
+    event_count_lact <4~paste0('Mast ', event_count_lact), 
+    is.na(event_count_lact) ~ 'Unknown',
+    TRUE~'Mast 4+'
+  ))%>%
+  
+  #match the dates to the denominator
+  mutate(date_time_period_start = floor_date(date_event, unit = 'month'))%>% 
+  
+  #use same  lactation grouping as denominator (0, 1, 2, 3+), 
+  #and set location to match denominator (locations will depend of farm data structure)
+  mutate(`Lactation Group` = lact_group, 
+         location_lact_list = location_event) %>% 
+  
+  #group by all variables in the denominator, plus any extras that you want (like event count), and summarize
+  group_by(location_lact_list, `Lactation Group`, 
+            date_time_period_start, event_count_lact)%>% 
+  summarize(ct_mast_events = n_distinct(id_animal))%>%
+  ungroup()
+
+#join numerator and denominator data to make event case rates
+final_data<-denominator%>%
+  left_join(mast_event_summary)%>%
+  mutate(ct_mast_events = replace_na(ct_mast_events, 0))%>%
+  mutate(mast_rate = ct_mast_events/ct_animal_time_periods)
+
+head(final_data) #check if it looks right
+
+#graph event case rate
+ggplot(final_data%>%filter(!(is.na(event_count_lact))))+
+  geom_point(aes(x = date_time_period_start, y= mast_rate, color = `Lactation Group`))+
+    geom_smooth(aes(x = date_time_period_start, y= mast_rate, 
+                    color = `Lactation Group`, group =  `Lactation Group`, 
+                    fill = `Lactation Group`),alpha = .2 , span = .6)+
+
+  facet_grid(event_count_lact~location_lact_list, scales = 'free')
+
 
 
 ```
