@@ -11,7 +11,11 @@ library(quarto)
 library(arrow)
 library(waldo)
 
-solution<-read_parquet('data/intermediate_files/events_formatted.parquet')
+solution<-read_parquet('data/intermediate_files/events_formatted.parquet') %>%
+  mutate(floordate_month = floor_date(date_event, 'month'), 
+         floordate_year = floor_date(date_event, 'year'), 
+         floordate_season = floor_date(date_event, 'season')
+  )
 
 # read in files-----------------
 
@@ -47,15 +51,15 @@ Then create new variables that provide floor dates by month, season, and year. N
 ```{r initial denominator generation, message==FALSE}
 events_formatted <- events_original |>
   mutate(
-    date_event = mdy(Date),
-    floordate_month = floor_date(date_event, unit="month"),
-    floordate_year = floor_date(date_event, unit="year"),
-    floordate_season = floor_date(date_event, unit="season")
+    date_event = mdy(Date), #new column date_event
+    floordate_month = floor_date(date_event, unit="month"), #new column floordate_month
+    floordate_year = floor_date(date_event, unit="year"), #new column floordate_year
+    floordate_season = floor_date(date_event, unit="season") #new column floordate_season
   )
 
 events_formatted |>
   select(Date, date_event, floordate_month, floordate_year, floordate_season) |>
-  glimpse()
+  glimpse() #look at my new columns
 ```
 
 Do your new dates match the dates in the solution?
@@ -74,8 +78,8 @@ Just spend time thinking about how you could use them to clean up remarks in a w
 
 
 ```{r, echo = TRUE}
-names(solution)|>
-  str_subset(regex("remark", ignore_case = TRUE))
+names(solution)|> #gets column names from solution data
+  str_subset(regex("remark", ignore_case = TRUE)) #keeps character strings that include "remark" without case
 
 ```
 
@@ -97,13 +101,13 @@ Here are some examples:
 #Clean event dates & remarks
 events_clean <- events_original |>
   mutate(
-    date_event = mdy(Date),
-    floordate_month = floor_date(date_event, unit="month"),
-    floordate_year = floor_date(date_event, unit="year"),
-    floordate_season = floor_date(date_event, unit="season"),
-event_clean = Event |>
-  str_to_upper()|>
-  str_squish(),
+    date_event = mdy(Date), #turn dates into mdy format
+    floordate_month = floor_date(date_event, unit="month"), #class by month
+    floordate_year = floor_date(date_event, unit="year"), #class by year
+    floordate_season = floor_date(date_event, unit="season"), #class by season
+event_clean = Event |> #makes new event_clean column from Events
+  str_to_upper()|> #changes all characters to capitals
+  str_squish(), #removes spaces from beginning & end & between words
 protocols_clean = Protocols|>
   str_to_upper()|>
   str_squish()
@@ -111,7 +115,7 @@ protocols_clean = Protocols|>
 
 #pull out mastitis events
 mastitis_events <-events_clean|>
-  filter(str_detect(event_clean, "MAST|MASTITIS"))
+  filter(str_detect(event_clean, "MAST|MASTITIS")) #looks for MAST or MASTITIS
 
 #see list of potential mastitis treatments (actually under Protocols, Remarks has teat/quarter info)
 mastitis_events |>
@@ -148,7 +152,7 @@ mastitis_treatments |>
 #let's plot it - I like a bar graph, but not stacked (position="dodge")
 mastitis_treatments|>
   count(floordate_year, mastitis_drug)|>
-  ggplot(aes(x=floordate_year, y=n, fill=mastitis_drug))+
+  ggplot(aes(x=factor(floordate_year), y=n, fill=mastitis_drug))+
   geom_col(position="dodge")+
   labs(
     title="Mastitis treatment protocols over time",
@@ -156,6 +160,20 @@ mastitis_treatments|>
     y="Number of mastitis events",
     fill="Treatment protocol"
   )
+
+#Facet grid
+mastitis_treatments|>
+  count(floordate_year, mastitis_drug)|>
+  ggplot(aes(x=factor(floordate_year), y=n, fill=mastitis_drug))+
+  geom_col(position="dodge")+
+  facet_grid(.~factor(floordate_year), scale="free_x")+
+  labs(
+    title="Mastitis treatment protocols over time",
+    x="Year",
+    y="Number of mastitis events",
+    fill="Treatment protocol"
+  )+
+    theme_bw()
 
 #let's plot it by facets - harder to interpret across treatments as separate graphs
 mastitis_treatments|>
@@ -169,7 +187,7 @@ mastitis_treatments|>
     y="Number of mastitis events"
   )
 
-#let's take into account how the dairy changed by switching to proportions
+#let's take into account how the dairy changed by switching to proportions 
 mastitis_treatments |>
   count(floordate_year, mastitis_drug) |> #compare year & drug
   group_by(floordate_year) |> #show points at each year
