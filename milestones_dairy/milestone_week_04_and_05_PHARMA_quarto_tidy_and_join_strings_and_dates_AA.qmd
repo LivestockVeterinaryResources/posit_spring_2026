@@ -92,7 +92,7 @@ ggplot() +
     lineheight = 0.9  
   ) +
   scale_fill_manual(
-    values = c("Domestic" = "#20a473", "Foreign" = "#e86e1a"), 
+    values = c("Domestic" = "#68228B", "Foreign" = "#e86e1a"), 
     name = "Location"                                           
   ) +
   labs(
@@ -191,6 +191,9 @@ extension_final <- summary_types |>
 
 extension_final
 
+# Install the colourpicker package to enable the RStudio Addin
+c("#68228B", "#FFFFFF", "#FFFFFF")
+
 ```
 
 
@@ -210,7 +213,25 @@ Explore something else in this greenbook data. Can you summarize 2 different thi
 Use your new skills for working with strings to clean up the `Marketing Category` column in the greenbook.
 
 ```{r}
+library(tidyverse)
 
+source('functions/fxn_mileston4_tools.R')
+ls()
+names(pharma_revenue)
+colors_mkt_cat
+
+raw_categories <- names(colors_mkt_cat)
+
+marketing_categories_clean <- tibble(Original = raw_categories) %>%
+  mutate(
+    Cleaned = str_to_lower(Original),
+    
+    Cleaned = str_trim(Cleaned),
+    
+    Cleaned = str_to_sentence(Cleaned)
+  )
+
+marketing_categories_clean
 ```
 
 
@@ -219,7 +240,23 @@ Use your new skills for working with strings to clean up the `Marketing Category
 Use your date formating skills to format `Inactivation Date` and `Reactivation Date`.  
 
 ```{r}
+library(tidyverse)
+library(readxl)
+library(lubridate)
 
+
+greenbook_data <- read_xlsx("greenbook.xlsx", 
+                            col_types = c(rep("guess", 9), "text", "text"))
+
+greenbook_final <- greenbook_data %>%
+  mutate(
+    Marketing_Category_Clean = str_to_lower(`Marketing Category`),
+    Marketing_Category_Clean = str_trim(Marketing_Category_Clean),
+    Inactivation_Date_Clean = ymd(`Inactivation Date`),
+    Reactivation_Date_Clean = ymd(`Reactivation Date`)
+  )
+
+glimpse(greenbook_final)
 ```
 
 
@@ -227,6 +264,17 @@ Is there a particular month of the year when more approvals are inactivated?
 
 ```{r}
 
+inactivations_by_month <- greenbook_final %>%
+ 
+  filter(!is.na(Inactivation_Date_Clean)) %>%
+  
+  mutate(
+    Inactivation_Month = month(Inactivation_Date_Clean, label = TRUE, abbr = TRUE)
+  ) %>%
+  
+  count(Inactivation_Month, sort = TRUE)
+
+inactivations_by_month
 ```
 
 
@@ -235,7 +283,35 @@ Is there a particular month of the year when more approvals are inactivated?
 Explore the greenbook using these new varaibles and anything else you are interested in (such as Ingredient List?).  You may find you also wish to clean up the ingredient list if you choose to use it.
 
 ```{r}
+# =========================================================================
+# EXTENSION: Analyzing the Most Common Ingredients
+# =========================================================================
 
+# Step 1: Clean the Ingredient List column
+greenbook_extension <- greenbook_final %>%
+  filter(!is.na(`Ingredient List`)) %>% 
+  mutate(
+    # str_to_title converts "CHLORAMPHENICOL" to "Chloramphenicol"
+    Ingredient_Clean = str_to_title(`Ingredient List`),
+    Ingredient_Clean = str_trim(Ingredient_Clean)
+  )
+
+# Step 2: Find the Top 5 most common ingredients
+top_ingredients <- greenbook_extension %>%
+  count(Ingredient_Clean, sort = TRUE) %>%
+  head(5)
+
+# Step 3: Create a beautiful bar chart for the professor
+ggplot(top_ingredients, aes(x = reorder(Ingredient_Clean, n), y = n, fill = Ingredient_Clean)) +
+  geom_col(show.legend = FALSE) +
+  coord_flip() + # Flips the chart so ingredient names are easy to read
+  labs(
+    title = "Top 5 Most Common Active Ingredients in the Greenbook",
+    x = "Active Ingredient",
+    y = "Number of Products",
+    caption = "Source: FDA Greenbook Data"
+  ) +
+  theme_minimal()
 ```
 
 

@@ -10,10 +10,11 @@ library(tidyverse)
 library(quarto)
 library(arrow)
 library(waldo)
-
+library(gitcreds)
 source('functions/fxn_add_event_counts.R')
 
 solution<-read_rds(here::here('milestones_dairy/data_milestones/solutions_week_05_pivotlonger.rds'))
+gitcreds::gitcreds_set()
 
 ```
 
@@ -207,6 +208,7 @@ ggplot(final_rp_data %>% filter(!(is.na(event_count_lact)))) +
   
   # Segment the graphics display matrix by event categories and farm boundaries
   facet_grid(event_count_lact ~ location_lact_list, scales = 'free')
+"gitcreds"
 ```
 
 
