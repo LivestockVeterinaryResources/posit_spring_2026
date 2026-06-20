@@ -255,9 +255,9 @@ head(denominator3)
 lame_event_summary<-read_parquet(here::here('data/intermediate_files/events_formatted.parquet'))%>%
   
   #select event of interest
-  filter(event %in% 'LAME')%>% 
-  #adding in filter for LAME to remove all TRIM ONLY Protocols would be great, but I believe the parquet files do not have events_formatted for me to filter out that data
-  filter(protocol!='Trim Only') |>
+  filter(event %in% 'LAME' & protocols!='Trim Only')%>% 
+  #adding in filter for LAME to remove all TRIM ONLY Protocols would be great, but I believe the parquet files do not have denominator_base corrected for me to correctly filter out that data from both the numerator and denominator portions. Tried to look at it anyway.
+  
   
   #add the event counts the way you like
   fxn_add_event_counts()%>% 
