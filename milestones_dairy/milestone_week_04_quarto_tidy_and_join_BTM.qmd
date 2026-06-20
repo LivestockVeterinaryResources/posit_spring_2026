@@ -137,16 +137,16 @@ Be careful with your joins. Do not unintentionally create or delete data.
 
 #Pick Calendar Time Period Type and Lactation Group for denominator----
 
-denominator<-read_parquet(here::here('data/intermediate_files/denominator_by_calendar_time_period.parquet'))%>%
-  filter(calendar_time_period_type %in% 'month')%>% #choose denominator period type
+denominator2<-read_parquet(here::here('data/intermediate_files/denominator_by_calendar_time_period.parquet'))%>%
+  filter(calendar_time_period_type %in% 'season')%>% #choose denominator period type
   filter(deno_type %in% 'lact_3+')%>% #choose the type of lactation group
   distinct()%>%
   select(-contains('dop'), -day_of_phase_group) # day of phase columns are not needed when dop is not part of grouping
 
 #check data
-head(denominator)
+head(denominator2)
 
-mast_event_summary<-read_parquet(here::here('data/intermediate_files/events_formatted.parquet'))%>%
+mast_event_summary2<-read_parquet(here::here('data/intermediate_files/events_formatted.parquet'))%>%
   
   #select event of interest
   filter(event %in% 'MAST')%>% #
@@ -157,10 +157,23 @@ mast_event_summary<-read_parquet(here::here('data/intermediate_files/events_form
     event_count_lact <4~paste0('Mast ', event_count_lact), 
     is.na(event_count_lact) ~ 'Unknown',
     TRUE~'Mast 4+'
-  ))%>%
+  )
+  ) %>%
   
-  #match the dates to the denominator
-  mutate(date_time_period_start = floor_date(date_event, unit = 'month'))%>% 
+  #match the dates to the denominator (use lubridate season here, only made case_when season variable as practice)
+  mutate(date_time_period_start= floor_date(date_event, unit = 'season'))%>% 
+    mutate(date_time_period_start_season=case_when(
+      month(date_time_period_start) %in% c(12, 1, 2) ~ "Winter",
+  month(date_time_period_start) %in% c(3, 4, 5)  ~ "Spring",
+  month(date_time_period_start) %in% c(6, 7, 8)  ~ "Summer",
+  month(date_time_period_start) %in% c(9, 10, 11) ~ "Fall",
+  TRUE ~ NA_character_
+    )
+    ) %>%
+
+    #another way to make seasons with lubridate automatically (month to 12, 3, 6, or 9 and retains year) vs case_when (only downside of lubridate is you can't make your own seasonality groupings based on specific climate criteria as seasons)
+       #mutate(date_time_period_start= floor_date(date_event, unit = 'season'))%>%
+
   
   #use same  lactation grouping as denominator (0, 1, 2, 3+), 
   #and set location to match denominator (locations will depend of farm data structure)
@@ -170,19 +183,19 @@ mast_event_summary<-read_parquet(here::here('data/intermediate_files/events_form
   #group by all variables in the denominator, plus any extras that you want (like event count), and summarize
   group_by(location_lact_list, `Lactation Group`, 
             date_time_period_start, event_count_lact)%>% 
-  summarize(ct_mast_events = n_distinct(id_animal))%>%
+  summarize(ct_mast_events2 = n_distinct(id_animal))%>%
   ungroup()
 
 #join numerator and denominator data to make event case rates
-final_data<-denominator%>%
-  left_join(mast_event_summary)%>%
-  mutate(ct_mast_events = replace_na(ct_mast_events, 0))%>%
-  mutate(mast_rate = ct_mast_events/ct_animal_time_periods)
+final_data2<-denominator2%>%
+  left_join(mast_event_summary2)%>%
+  mutate(ct_mast_events2 = replace_na(ct_mast_events2, 0))%>%
+  mutate(mast_rate = ct_mast_events2/ct_animal_time_periods)
 
-head(final_data) #check if it looks right
+head(final_data2) #check if it looks right
 
 #graph event case rate
-ggplot(final_data%>%filter(!(is.na(event_count_lact))))+
+ggplot(final_data2%>%filter(!(is.na(event_count_lact))))+
   geom_point(aes(x = date_time_period_start, y= mast_rate, color = `Lactation Group`))+
     geom_smooth(aes(x = date_time_period_start, y= mast_rate, 
                     color = `Lactation Group`, group =  `Lactation Group`, 
@@ -191,6 +204,14 @@ ggplot(final_data%>%filter(!(is.na(event_count_lact))))+
   facet_grid(event_count_lact~location_lact_list, scales = 'free')
 
 
+####Graphing Practice
+ggplot(final_data2%>%filter(!(is.na(event_count_lact))))+
+  geom_point(aes(x = date_time_period_start, y= mast_rate, color = `Lactation Group`))+
+    geom_smooth(aes(x = date_time_period_start, y= mast_rate, 
+                    color = `Lactation Group`, group =  `Lactation Group`, 
+                    fill = `Lactation Group`),alpha = .2 , span = .6)+
+
+  facet_grid(event_count_lact~location_lact_list, scales = 'free')
 
 ```
 
@@ -215,3 +236,89 @@ NOTE: Denominators can be challenging. If you get stuck:
 -   Begin filling in code
 
 -   Ask the group for help if you get completely stuck.
+
+### Lameness Rates
+```{r}
+
+#Pick Calendar Time Period Type and Lactation Group for denominator----
+
+denominator3<-read_parquet(here::here('data/intermediate_files/denominator_by_calendar_time_period.parquet'))%>%
+  filter(calendar_time_period_type %in% 'month')%>% #choose denominator period type
+  filter(deno_type %in% 'lact_3+')%>% #choose the type of lactation group
+  distinct()%>%
+  select(-contains('dop'), -day_of_phase_group) # day of phase columns are not needed when dop is not part of grouping
+
+
+#check data
+head(denominator3)
+
+lame_event_summary<-read_parquet(here::here('data/intermediate_files/events_formatted.parquet'))%>%
+  
+  #select event of interest
+  filter(event %in% 'LAME')%>% 
+  #adding in filter for LAME to remove all TRIM ONLY Protocols would be great, but I believe the parquet files do not have events_formatted for me to filter out that data
+  filter(protocol!='Trim Only') |>
+  
+  #add the event counts the way you like
+  fxn_add_event_counts()%>% 
+  mutate(event_count_lact = case_when(
+    event_count_lact <4~paste0('Lame ', event_count_lact), 
+    is.na(event_count_lact) ~ 'Unknown',
+    TRUE~'Lame 4+'
+  )
+  ) %>%
+  
+  #match the dates to the denominator (use lubridate season here, only made case_when season variable as practice)
+  mutate(date_time_period_start= floor_date(date_event, unit = 'month'))%>% 
+    mutate(date_time_period_start_season=case_when(
+      month(date_time_period_start) %in% c(12, 1, 2) ~ "Winter",
+  month(date_time_period_start) %in% c(3, 4, 5)  ~ "Spring",
+  month(date_time_period_start) %in% c(6, 7, 8)  ~ "Summer",
+  month(date_time_period_start) %in% c(9, 10, 11) ~ "Fall",
+  TRUE ~ NA_character_
+    )
+    ) %>%
+
+    #another way to make seasons with lubridate automatically (month to 12, 3, 6, or 9 and retains year) vs case_when (only downside of lubridate is you can't make your own seasonality groupings based on specific climate criteria as seasons)
+       #mutate(date_time_period_start= floor_date(date_event, unit = 'season'))%>%
+
+  
+  #use same  lactation grouping as denominator (0, 1, 2, 3+), 
+  #and set location to match denominator (locations will depend of farm data structure)
+  mutate(`Lactation Group` = lact_group, 
+         location_lact_list = location_event) %>% 
+  
+  #group by all variables in the denominator, plus any extras that you want (like event count), and summarize
+  group_by(location_lact_list, `Lactation Group`, 
+            date_time_period_start, event_count_lact)%>% 
+  summarize(ct_lame_events = n_distinct(id_animal))%>%
+  ungroup()
+
+#join numerator and denominator data to make event case rates
+final_data3<-denominator3%>%
+  left_join(lame_event_summary)%>%
+  mutate(ct_lame_events = replace_na(ct_lame_events, 0))%>%
+  mutate(lame_rate = ct_lame_events/ct_animal_time_periods)
+
+head(final_data3) #check if it looks right
+
+#graph event case rate
+ggplot(final_data3%>%filter(!(is.na(event_count_lact))))+
+  geom_point(aes(x = date_time_period_start, y= lame_rate, color = `Lactation Group`))+
+    geom_smooth(aes(x = date_time_period_start, y= lame_rate, 
+                    color = `Lactation Group`, group =  `Lactation Group`, 
+                    fill = `Lactation Group`),alpha = .2 , span = .6)+
+
+  facet_grid(event_count_lact~location_lact_list, scales = 'free')
+
+
+####Graphing Practice
+ggplot(final_data3%>%filter(!(is.na(event_count_lact))))+
+  geom_point(aes(x = date_time_period_start, y= lame_rate, color = `Lactation Group`))+
+    geom_smooth(aes(x = date_time_period_start, y= lame_rate, 
+                    color = `Lactation Group`, group =  `Lactation Group`, 
+                    fill = `Lactation Group`),alpha = .2 , span = .6)+
+
+  facet_grid(event_count_lact~location_lact_list, scales = 'free')
+
+```
