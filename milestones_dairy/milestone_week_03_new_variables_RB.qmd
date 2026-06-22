@@ -54,13 +54,10 @@ events<-read_parquet(here::here('data/intermediate_files/events_formatted.parque
   filter(event_type %in% 'health')
   
 #Add new variables using predefined functions
-
 events <- fxn_add_event_counts(events)
-
 events <- add_new_variables(events)
  
-#List of events and comparison between event day of phase (dop_event) and days in milk (dim_event)
-
+#List of unique events
 sort(unique(events$event))
 
 #Filtering data frame to focus on udder health and creating categorical variable
@@ -75,16 +72,18 @@ df_udder_only <- events |>
     TRUE             ~ "Late_lactation"
   )) 
 
-#Quality check (missing values, categorical variable, list of events)
-
-lapply(df_udder_only[, c("event", "lact_group")], function(x) sort(unique(x)))
-
+#Quality check (checking for missing values)
 df_udder_only |> 
   summarise(
     na_event = sum(is.na(event)),
     na_dop_event = sum(is.na(dop_event))
   )
 
+#Quality check (list of unique events)
+sort(unique(df_udder_only$event))
+sort(unique(df_udder_only$lact_group))
+
+#Quality check (limits of categorical variable for DOP)
 df_udder_only |>
   group_by(dop_event_cat) |>
   summarise(
@@ -92,6 +91,7 @@ df_udder_only |>
     max = max(dop_event, na.rm = TRUE)
   )
 
+#Quality check (checking the difference between DOP and DIM)
 event_counts_by_month <- df_udder_only |>
   distinct(event, floordate_month, dop_event_cat, id_animal) |>
   group_by(event, floordate_month, dop_event_cat) |>
@@ -144,7 +144,6 @@ Run the chunk below to see the example graphics. . . . your graphics can be pret
 knitr::include_graphics(('milestones_dairy/images/milestone4_disease_by_phase.jpg'))
 
 #Create variables number of affected quarters, indicator variables for affected quarters, and treatment (locate_lesion already interpreted remark)
- 
 df_mastitis_only <- df_udder_only |>
   filter(startsWith(event, "MAST")) |>
   mutate(
@@ -178,8 +177,7 @@ df_mastitis_only <- df_udder_only |>
     )
   )
 
-#Descriptive
-
+#Descriptive statistics
 df_mastitis_only |>
   count(n_quarters) |>
   arrange(n_quarters)
