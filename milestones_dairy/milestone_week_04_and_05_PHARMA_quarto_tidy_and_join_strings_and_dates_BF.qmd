@@ -149,6 +149,7 @@ fda_greenbook |>
   distinct(Labeler.Name) |>
   arrange(Labeler.Name)
 
+# Have to recode Labeler.Name from fda_greenbook, since manufacturer names are in multiple formats
 fda_greenbook_1 <- fda_greenbook |>
   mutate(
     Manufacturer = case_when(
@@ -166,6 +167,33 @@ fda_greenbook_1 <- fda_greenbook |>
     )
   )
 
+pharma_revenue_clean <- pharma_revenue |> # Remove duplicates to avoid 'many-to-many' relationships warning and multiplying rows #
+  distinct() |>
+  mutate(
+    `Revenue (millions)` = parse_number(`Gross Revenue (Animal Health Only)`) *
+    case_when(
+  str_detect(`Gross Revenue (Animal Health Only)`, "Billion") ~ 1000,
+  str_detect(`Gross Revenue (Animal Health Only)`, "Million") ~ 1
+    )
+  )
+
+greenbook_revenue <- inner_join(pharma_revenue_clean, fda_greenbook_1, by = "Manufacturer")
+greenbook_rev_left <- left_join(pharma_revenue_clean, fda_greenbook_1, by = "Manufacturer")
+
+# Summarizing by manufacturer, revenue, number of NDC to see if there is a correlation between revenue and number of listed products
+summary_greenbook_rev <- greenbook_rev_left |>
+  group_by(Manufacturer, `Revenue (millions)`) |>
+  summarize(
+    sum(n())
+  ) |>
+    arrange(desc(`Revenue (millions)`))
+
+  summary_greenbook_rev |>
+    rename(`Number of products` = `sum(n())`) |>
+    ggplot() +
+  geom_point(mapping = aes(x = `Number of products`, y = `Revenue (millions)`, color = Manufacturer), size = 4) +
+  scale_color_brewer(name = "Manufacturer", palette = "Paired") +
+  theme_minimal()
 ```
 
 
