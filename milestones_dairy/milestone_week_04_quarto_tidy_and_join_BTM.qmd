@@ -120,7 +120,7 @@ ggplot(final_data%>%filter(!(is.na(event_count_lact))))+
   geom_point(aes(x = date_time_period_start, y= mast_rate, color = `Lactation Group`))+
     geom_smooth(aes(x = date_time_period_start, y= mast_rate, 
                     color = `Lactation Group`, group =  `Lactation Group`, 
-                    fill = `Lactation Group`),alpha = .2 , span = .6)+
+                    fill = `Lactation Group`),alpha = .2 , span = .2)+
 
   facet_grid(event_count_lact~location_lact_list, scales = 'free')
 
