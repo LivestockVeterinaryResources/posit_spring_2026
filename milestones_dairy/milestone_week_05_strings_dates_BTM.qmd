@@ -47,7 +47,15 @@ Use your new skills formating dates to create a new column named date_event that
 Then create new variables that provide floor dates by month, season, and year. Name these floordate_month, floordate_year, floordate_season.
 
 ```{r initial denominator generation, message==FALSE}
+events_original<-events_original |>
+  mutate(
+    date_event=mdy(Date),
+    floordate_month=floor_date(date_event, "month"),
+    floordate_season=floor_date(date_event, "season"),
+    floordate_year=floor_date(date_event, "year")
+  )
 
+events_original #checking to see tibble is what I need with new variables and corrected characters to dates
 
 ```
 
@@ -65,8 +73,31 @@ Can you recreate them?
 Hint: don't spend too much time trying to get exactly the same values. 
 Just spend time thinking about how you could use them to clean up remarks in a way that would help you answer a question.
 
-
+## My Questions about Extract All issues?
 ```{r, echo = TRUE}
+
+ #unsure why extract all isn't giving me the data in a readable format so I can split it up...is it because it is not tidy data and generating rows of variables vs columns of variables?
+  # My from pen to pen move example that does not work
+  # str_extract_all(Remark,"F(\\d{3})T(\\d{3})") #extract numbers between character letters...ie F201T202 gives "201"
+
+
+events_original<-events_original |>
+ 
+  mutate(
+    remark_numbers1=str_extract(Remark,"\\d+"),
+    remark_letters1=str_extract(Remark,"[A-Za-z]+"), #this will extract the first letters in a character string and ignore numbers
+    remark_remaining_after_numbers1=str_remove(Remark,"\\d+"),#has leftovers (numbers and letters) after numbers1 like "FT###"
+    remark_remaining_after_letters1=str_remove(Remark,"[A-Za-z]+"),#has leftovers (numbers and letters) after letters1 like "###T###"
+    remark_numbers2=str_extract(remark_remaining_after_letters1,"\\d+"),  #OR could do
+        #remark_numbers2=str_extract(Remark,"\\d+(?!.*\\d+)"), #not sure how to do this in a simpler way, this looks backwards for numerics in character strings
+    remark_letters2=str_extract(remark_remaining_after_numbers1,"[A-Za-z]+"), #looks like its repeating remark_letters1 but using remark_remaining_after_numbers1 as data frame
+    
+    extracted_movefrom_pen=str_extract(Remark,"(?<=F)\\d{3}"), #added pen move extractions here...might be better ways
+    extracted_moveto_pen=str_extract(Remark,"(?<=T)\\d{3}")
+  )
+
+events_original
+
 
 
 ```

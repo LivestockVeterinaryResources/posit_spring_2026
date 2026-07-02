@@ -7,7 +7,7 @@ source('functions/setup_default_processing_options.R') #default settings: 1 exam
 
 #get_EXAMPLE_herds <- 0 # (0-8) ## number of Parnell Example herds you want to process.## if this is set to 0, you need to put your own data in the event_files folder
 
-run_reports <-FALSE #make this false if you just want to reprocess base data
+run_reports <-TRUE #make this false if you just want to reprocess base data
 
 #milk_data_exists <- TRUE # are there files in the milk_files folder that you want to process?
 
