@@ -78,8 +78,9 @@ Just spend time thinking about how you could use them to clean up remarks in a w
 
  #unsure why extract all isn't giving me the data in a readable format so I can split it up...is it because it is not tidy data and generating rows of variables vs columns of variables?
   # My from pen to pen move example that does not work
-  # str_extract_all(Remark,"F(\\d{3})T(\\d{3})") #extract numbers between character letters...ie F201T202 gives "201"
-
+  #str_extract_all(Remark,"F(\\d{3})T(\\d{3})") #extract numbers between character letters...ie F201T202 gives "201"
+#str_split lookup
+#str_sub 
 
 events_original<-events_original |>
  
