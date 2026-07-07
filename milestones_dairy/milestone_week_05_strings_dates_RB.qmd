@@ -45,11 +45,17 @@ Use your new skills formating dates to create a new column named date_event that
 Then create new variables that provide floor dates by month, season, and year. Name these floordate_month, floordate_year, floordate_season.
 
 ```{r initial denominator generation, message==FALSE}
-
+events_original <- events_original |>
+  mutate(
+    date_event = mdy(Date),
+    floordate_month  = floor_date(date_event, unit = "month"),
+    floordate_year   = floor_date(date_event, unit = "year"),
+    floordate_season = floor_date(date_event, unit = "season")
+  )
 
 ```
 
-Do your new dates match the dates in the solution?
+Do your new dates match the dates in the solution? #same format
 
 
 # Strings

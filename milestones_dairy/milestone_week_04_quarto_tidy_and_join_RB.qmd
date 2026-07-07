@@ -206,7 +206,7 @@ final_data_metritis <- denominator |>
 
 # Step 4: plot
 ggplot(final_data_metritis) +
-  geom_point(aes(x = date_time_period_start, y = metritis_rate, color = `Lactation Group`)) +
+  geom_point(aes(x = date_time_period_start, y = metritis_rate, color = `Lactation Group`, fill = `Lactation Group`)) +
   geom_smooth(aes(x = date_time_period_start, y = metritis_rate,
                   color = `Lactation Group`, group = `Lactation Group`,
                   fill = `Lactation Group`), alpha = .2, span = .6) +
