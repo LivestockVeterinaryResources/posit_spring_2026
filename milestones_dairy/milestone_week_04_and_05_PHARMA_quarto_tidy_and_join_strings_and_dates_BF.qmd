@@ -57,6 +57,7 @@ In the chunk below:
 
 -   use geom text to add text to your graphic showing the total number of facilities, the percent foreign and percent domestic. Use the graphic in chunk 2 as an example of what you are trying to create.
 
+# | Facility count plots | #
 ```{r}
 fda_facilities_plot1 <- fda_facilities |>
   ggplot(mapping = aes(x = factor(Year))) +                # Used factor(Year) to treat as categories so all years would be listed
@@ -118,6 +119,7 @@ Pipe your data into the function `fxn_clean_green_manufacturer()` to clean up th
 
 Make a new dataframe named `Top_10` that is only the first 10 rows.
 
+# Reading in the Greenbook
 ```{r}
 fda_greenbook <- read.csv("C:/Users/peppe/Documents/Posit course/Electronic_Animal_Drug_Product_Listing_Directory/Electronic_Animal_Drug_Product_Listing_Directory.xls.csv")
 
@@ -150,6 +152,7 @@ fda_greenbook |>
   arrange(Labeler.Name)
 
 # Have to recode Labeler.Name from fda_greenbook, since manufacturer names are in multiple formats
+# If I had read the instructions, I wouldn't have needed to do that...
 fda_greenbook_1 <- fda_greenbook |>
   mutate(
     Manufacturer = case_when(
@@ -205,6 +208,16 @@ Is there any correlation between number of products listed and revenue?
 
 Explore something else in this greenbook data. Can you summarize 2 different things and then join them back on a shared variable?
 
+# | Is there a correlation between list type and revenue?
+```{r}
+# See if there is a difference between revenue and number of NADA, ANADA, or other categories (Marketing Category variable) and product type (OTC, Rx, VFD, bulk, other) and revenue and join back on revenue
+
+# Create dataframe with major manufacturers and summary of revenue vs. marketing category
+
+# Create dataframe with major manufacturers and summary of revenue vs. product type
+
+# Join marketing and product type dataframes back on manufacturer
+```
 
 # Week 5
 
@@ -213,7 +226,19 @@ Explore something else in this greenbook data. Can you summarize 2 different thi
 Use your new skills for working with strings to clean up the `Marketing Category` column in the greenbook.
 
 ```{r}
+greenbook_rev_left |>
+  skim() # There are 12 unique marketing categories
 
+greenbook_rev_left |>
+  group_by(Manufacturer, Marketing.Category) |>
+  summarize(
+    sum(n())
+  ) |>
+    arrange(desc(`Manufacturer`)) |>
+    print(n = 44)
+
+# Would like to keep NADA, ANADA, indexed (Index), conditional (CA), bulk ingredient (Bulk), export (Exp), other unapproved (Unapp)
+## NADA and ANADA don't need to be cleaned
 ```
 
 
