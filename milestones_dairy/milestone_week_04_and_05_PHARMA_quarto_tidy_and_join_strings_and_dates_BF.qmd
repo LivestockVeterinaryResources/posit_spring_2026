@@ -208,11 +208,109 @@ Is there any correlation between number of products listed and revenue?
 
 Explore something else in this greenbook data. Can you summarize 2 different things and then join them back on a shared variable?
 
-# | Is there a correlation between list type and revenue?
+### Is there a correlation between list type and revenue?
 ```{r}
 # See if there is a difference between revenue and number of NADA, ANADA, or other categories (Marketing Category variable) and product type (OTC, Rx, VFD, bulk, other) and revenue and join back on revenue
 
 # Create dataframe with major manufacturers and summary of revenue vs. marketing category
+greenbook_rev_market <- greenbook_rev_left |>
+  select(Manufacturer, `Revenue (millions)`, NDC, Application.Number.or.Monograph.ID, Marketing.Category, Proprietary.Name, Non.Proprietary.Name, Ingredient.List) |>
+  mutate(
+    Approval.type = case_when(
+      str_detect(Marketing.Category, regex("anada", ignore_case = TRUE)) ~ "ANADA",
+      str_detect(Marketing.Category, regex("conditional", ignore_case = TRUE)) ~ "Conditional",
+      str_detect(Marketing.Category, regex("nada", ignore_case = TRUE)) ~ "NADA",
+      str_detect(Marketing.Category, regex("minor", ignore_case = TRUE)) ~ "Indexed",
+      TRUE ~ "Other unapproved"
+    )
+  )
+
+summary_greenbook_market <- greenbook_rev_market |>
+  add_count(Manufacturer, `Approval.type`, name = "n_products")
+  
+#greenbook_market_plot <- summary_greenbook_market |>
+#  ggplot() +
+#  facet_wrap(facets = vars(Approval.type), scales = "fixed", nrow = 1) +
+#  geom_point(
+#    mapping = aes(x = n_products, y = `Revenue (millions)`, color = Manufacturer),
+#    size = 3.5,
+#    alpha = 0.6
+#  ) +
+#  geom_smooth(
+#    mapping = aes(x = n_products, y = `Revenue (millions)`),
+#    method = "lm",
+#    se = FALSE,
+#    color = "black",
+#    linewidth = 0.7
+#  ) +
+#  scale_color_brewer(name = "Manufacturer", palette = "Paired") +
+#  labs(
+#    x = "Number of products",
+#    title = "Greenbook products by marketing category and manufacturer"
+#  ) +
+#  theme_minimal()
+#
+#greenbook_market_plot
+
+## This is the best one. Used Claude to play with different plot types and help me find a colorblind friendly palette.
+greenbook_market_nofacet_plot <- summary_greenbook_market |>
+  ggplot() +
+  geom_point(
+    mapping = aes(x = n_products, y = `Revenue (millions)`, shape = Manufacturer, color = Approval.type),
+    size = 3.5,
+    alpha = 0.6
+  ) +
+  geom_smooth(
+    mapping = aes(x = n_products, y = `Revenue (millions)`, color = Approval.type),
+    method = "lm",
+    se = TRUE,
+    linewidth = 0.7
+  ) +
+  scale_shape_manual(values = 0:9) +
+  scale_color_manual(
+    values = c(
+      "ANADA" = "#2a78d6",
+      "Conditional" = "#008300",
+      "NADA" = "#e87ba4",
+      "Indexed" = "#eda100",
+      "Other unapproved" = "#898781"
+    )
+  ) +
+  labs(
+    x = "Number of products",
+    color = "Approval type",
+    shape = "Manufacturer",
+    title = "Greenbook revenue by number of products, approval type, and manufacturer"
+  ) +
+  theme_minimal()
+
+greenbook_market_nofacet_plot
+
+#greenbook_market_strip_plot <- summary_greenbook_market |>
+#  ggplot(mapping = aes(x = Approval.type, y = `Revenue (millions)`, color = Manufacturer)) +
+#  geom_jitter(width = 0.2, size = 3.5, alpha = 0.6) +
+#  scale_color_brewer(name = "Manufacturer", palette = "Paired") +
+#  labs(
+#    x = "Approval type",
+#    title = "Greenbook revenue by marketing category and manufacturer"
+#  ) +
+#  theme_minimal()
+#
+#greenbook_market_strip_plot
+
+#greenbook_market_bubble_plot <- summary_greenbook_market |>
+#  ggplot(mapping = aes(x = Approval.type, y = `Revenue (millions)`, size = n_products, color = Manufacturer)) +
+#  geom_jitter(width = 0.2, alpha = 0.6) +
+#  scale_color_brewer(name = "Manufacturer", palette = "Paired") +
+#  scale_size_continuous(name = "Number of products") +
+#  labs(
+#    x = "Approval type",
+#    title = "Greenbook revenue by marketing category and manufacturer"
+#  ) +
+#  theme_minimal()
+#
+#greenbook_market_bubble_plot
+
 
 # Create dataframe with major manufacturers and summary of revenue vs. product type
 
