@@ -313,8 +313,85 @@ greenbook_market_nofacet_plot
 
 
 # Create dataframe with major manufacturers and summary of revenue vs. product type
+greenbook_rev_product <- greenbook_rev_left |>
+  select(Manufacturer, `Revenue (millions)`, NDC, Application.Number.or.Monograph.ID, Product.Type, Proprietary.Name) |>
+  mutate(
+    Drug.type = case_when(
+      str_detect(Product.Type, regex("vfd", ignore_case = TRUE)) ~ "VFD Type A",
+      str_detect(Product.Type, regex("article", ignore_case = TRUE)) ~ "OTC Type A",
+      str_detect(Product.Type, regex("prescription", ignore_case = TRUE)) ~ "Rx",
+      str_detect(Product.Type, regex("otc", ignore_case = TRUE)) ~ "OTC",
+      str_detect(Product.Type, regex("bulk", ignore_case = TRUE)) ~ "Bulk",
+      TRUE ~ "Other"
+    )
+  ) |>
+    relocate(Drug.type, .before = Product.Type)
+
+summary_greenbook_product <- greenbook_rev_product |>
+  add_count(Manufacturer, `Drug.type`, name = "n_drug")
+
+
+greenbook_product_plot <- summary_greenbook_product |>
+  ggplot() +
+  geom_point(
+    mapping = aes(x = n_drug, y = `Revenue (millions)`, shape = Manufacturer, color = Drug.type),
+    size = 3.5,
+    alpha = 0.6
+  ) +
+  geom_smooth(
+    mapping = aes(x = n_drug, y = `Revenue (millions)`, color = Drug.type),
+    method = "lm",
+    se = TRUE,
+    linewidth = 0.7
+  ) +
+  scale_shape_manual(values = 0:9) +
+  scale_color_manual(
+    values = c(
+      "VFD Type A" = "#2a78d6",
+      "OTC Type A" = "#008300",
+      "Rx" = "#e87ba4",
+      "OTC" = "#eda100",
+      "Bulk" = "#898781"
+    )
+  ) +
+  labs(
+    x = "Number of products",
+    color = "Drug type",
+    shape = "Manufacturer",
+    title = "Greenbook revenue by number of products, drug type, and manufacturer"
+  ) +
+  theme_minimal()
+
+greenbook_product_plot
+
+# Try to see individual relationships with facets
+## Rx appear to have strongest correlation to revenue
+greenbook_product_plot_1 <- summary_greenbook_product |>
+  ggplot() +
+  facet_wrap(facets = vars(Drug.type), scales = "fixed", nrow = 1) +
+  geom_point(
+    mapping = aes(x = n_drug, y = `Revenue (millions)`, color = Manufacturer),
+    size = 3.5,
+    alpha = 0.6
+  ) +
+  geom_smooth(
+    mapping = aes(x = n_drug, y = `Revenue (millions)`),
+    method = "lm",
+    se = FALSE,
+    color = "black",
+    linewidth = 0.7
+  ) +
+  scale_color_brewer(name = "Manufacturer", palette = "Paired") +
+  labs(
+    x = "Number of products",
+    title = "Greenbook products by drug category and manufacturer"
+  ) +
+  theme_minimal()
+
+greenbook_product_plot_1
 
 # Join marketing and product type dataframes back on manufacturer
+summary_fda_drugcat_rev <- left_join(summary_greenbook_product, summary_greenbook_market, join_by(Manufacturer, `Revenue (millions)`, NDC, Application.Number.or.Monograph.ID, Proprietary.Name))
 ```
 
 # Week 5
@@ -337,6 +414,18 @@ greenbook_rev_left |>
 
 # Would like to keep NADA, ANADA, indexed (Index), conditional (CA), bulk ingredient (Bulk), export (Exp), other unapproved (Unapp)
 ## NADA and ANADA don't need to be cleaned
+### Already did this in week 4 extension
+greenbook_clean <- fda_greenbook |>
+  mutate(
+    Approval.type = case_when(
+      str_detect(Marketing.Category, regex("anada", ignore_case = TRUE)) ~ "ANADA",
+      str_detect(Marketing.Category, regex("conditional", ignore_case = TRUE)) ~ "Conditional",
+      str_detect(Marketing.Category, regex("nada", ignore_case = TRUE)) ~ "NADA",
+      str_detect(Marketing.Category, regex("minor", ignore_case = TRUE)) ~ "Indexed",
+      TRUE ~ "Other unapproved"
+    )
+  ) |>
+    relocate(Approval.type, .before = Proprietary.Name)
 ```
 
 
@@ -345,6 +434,11 @@ greenbook_rev_left |>
 Use your date formating skills to format `Inactivation Date` and `Reactivation Date`.  
 
 ```{r}
+greenbook_clean <- greenbook_clean|>
+  mutate(
+    Inactivation.Date = ymd(Inactivation.Date),
+    Reactivation.Date = ymd(Reactivation.Date)
+  )
 
 ```
 
